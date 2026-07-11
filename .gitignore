@@ -1,0 +1,28 @@
+/Debug/
+/Release/
+/build/
+
+# Compiler and linker generated files
+*.o
+*.obj
+*.d
+*.dep
+*.su
+*.cyclo
+*.elf
+*.axf
+*.map
+*.list
+*.lst
+*.hex
+*.bin
+*.srec
+*.a
+
+.metadata/
+
+# Local debug configuration
+*.launch
+
+
+*.log
