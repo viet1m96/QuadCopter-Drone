@@ -108,6 +108,9 @@ MPU6050_Status_t MPU6050_Init(
 	if (mpu == NULL || hi2c == NULL) {
 	    return MPU6050_ERR_NULL;
 	}
+	if (address > 0x7FU) {
+		return MPU6050_INVALID_CONFIG;
+	}
 	mpu -> hi2c = hi2c;
 	mpu -> address = address;
 	MPU6050_Status_t status = MPU6050_CheckDeviceID(mpu);
@@ -130,6 +133,7 @@ MPU6050_Status_t MPU6050_Init(
 }
 
 MPU6050_Status_t MPU6050_CheckDeviceID(MPU6050_Handle_t* mpu) {
+	if(mpu == NULL) return MPU6050_ERR_NULL;
 	uint8_t who = 0;
 	MPU6050_Status_t readWhoAmI = mpu6050_read_reg(mpu, MPU6050_REG_WHO_AM_I, &who);
 	if(readWhoAmI == MPU6050_OK) {
@@ -335,9 +339,9 @@ MPU6050_Status_t MPU6050_SetStillnessConfig(MPU6050_Handle_t* mpu, MPU6050_Still
     still -> gyro_threshold = mpu -> gyro_scale ;
 
 
-    still -> accel_threshold = mpu->accel_scale;
-    still -> accel_axis_threshold = mpu->accel_scale * 0.05f;
-    still -> accel_allowed_gap = mpu->accel_scale * 0.1f;
+    still -> accel_threshold = mpu-> accel_scale * MPU6050_ACCEL_STILLNESS_THRES_COEFFICIENT;
+    still -> accel_axis_threshold = mpu-> accel_scale * MPU6050_ACCEL_STILLNESS_AXIS_COEFFICIENT;
+    still -> accel_allowed_gap = mpu-> accel_scale * MPU6050_ACCEL_STILLNESS_ALLOWED_GAP_COEFFICIENT;
 
     return MPU6050_OK;
 }

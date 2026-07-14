@@ -14,6 +14,7 @@
 #include "stdio.h"
 #include "string.h"
 #include "mpu6050.h"
+#include "bmp180.h"
 
 I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef husart2;
@@ -22,6 +23,14 @@ MPU6050_RawData_t raw;
 MPU6050_Data_t scaled;
 MPU6050_StillnessConfig_t still;
 uint8_t mpu6050_ready = 0;
+
+BMP180_Handle_t bmp180;
+BMP180_Calibration_t offsets;
+BMP180_RawData_t bmp_raw;
+BMP180_Data_t bmp_scaled;
+BMP180_PressureWindow_t bmp_window;
+BMP180_Filter_t filter;
+uint8_t bmp180_ready = 0;
 
 float data_x[1000] = {0.0f};
 float data_y[1000] = {0.0f};
@@ -120,7 +129,7 @@ void MPU6050_Setup(void) {
 	}
 	status = MPU6050_CalibrateGyroOffset(&mpu6050, &raw, &still);
 	if(status != MPU6050_OK) {
-		printf("MPU6050_CalibrateGyroOffset failed: %s\r\n", MPU6050_ConvertStatusToString(status));
+		printf("MPU6050_CalibrateGyroOffset failed:%s\r\n", MPU6050_ConvertStatusToString(status));
 		return;
 	}
 	status = MPU6050_CalibrateAccelOffset(&mpu6050, &raw, &still, 0.0f, 0.0f, 1.0f);
@@ -130,6 +139,95 @@ void MPU6050_Setup(void) {
 	}
 	if(status == MPU6050_OK) mpu6050_ready = 1;
 
+}
+
+void BMP180_Setup(void)
+{
+    BMP180_Status_t status =
+        BMP180_Init(
+            &bmp180,
+            &hi2c1,
+            BMP180_ADDRESS
+        );
+
+    if(status != BMP180_OK) {
+        printf("BMP180 init failed\r\n");
+        return;
+    }
+
+    status = BMP180_ReadCalibrationOffsets(
+        &bmp180,
+        &offsets
+    );
+
+    if(status != BMP180_OK) {
+        printf("Reading calibration offsets failed\r\n");
+        return;
+    }
+
+    BMP180_WindowInit(&bmp_window);
+
+    printf("BMP180 active warming up...\r\n");
+
+    uint32_t warmup_start_tick = HAL_GetTick();
+
+    while((HAL_GetTick() - warmup_start_tick) < 30000U) {
+
+        status = BMP180_MeasureData(
+            &bmp180,
+            &bmp_raw,
+            &bmp_scaled,
+            &offsets,
+            &bmp_window
+        );
+
+        if(status != BMP180_OK) {
+            BMP180_NotiStatus(
+                status,
+                "Warm-up measurement failed"
+            );
+            return;
+        }
+
+
+        HAL_Delay(100U);
+    }
+
+
+    BMP180_WindowInit(&bmp_window);
+
+    status = BMP180_SetStartupPressurePa(
+        &bmp180,
+        &bmp_raw,
+        &bmp_scaled,
+        &offsets,
+        &bmp_window
+    );
+
+    if(status != BMP180_OK) {
+        BMP180_NotiStatus(
+            status,
+            "Startup pressure failed"
+        );
+        return;
+    }
+
+    BMP180_WindowInit(&bmp_window);
+
+    BMP180_FilterInit(&filter);
+
+
+    filter.last_pressure_pa =
+        bmp180.startup_pressure_pa;
+
+    filter.first_data = 0U;
+
+    bmp180_ready = 1U;
+
+    printf(
+        "Startup pressure: %.2f Pa\r\n",
+        bmp180.startup_pressure_pa
+    );
 }
 
 void I2C_Scan(void) {
@@ -153,42 +251,70 @@ int main(void) {
 	printf("\r\nBOOT\r\n");
 	I2C_Scan();
 	MPU6050_Setup();
-	int num = 0;
+	BMP180_Setup();
+	BMP180_Status_t status;
 	while (1)
 	{
-		if(mpu6050_ready == 1 && num < 1000) {
-			MPU6050_ReadScaledData(&mpu6050, &scaled);
-//			printf("accel_x %f\r\n", scaled.accel_x_g);
-//			printf("accel_y %f\r\n", scaled.accel_y_g);
-//			printf("accel_z %f\r\n", scaled.accel_z_g);
-//			printf("gyro_x %f\r\n", scaled.gyro_x_dps);
-//			printf("gyro_y %f\r\n", scaled.gyro_y_dps);
-//			printf("gyro_z %f\r\n", scaled.gyro_z_dps);
-//			printf("temp_c %f\r\n", scaled.temp_c);
-//			printf("\r\n");
-			printf("%d\r\n", num);
-			data_x[num] = scaled.accel_x_g;
-			data_y[num] = scaled.accel_y_g;
-			data_z[num] = scaled.accel_z_g;
-			num++;
+		status = BMP180_MeasureData(
+		    &bmp180,
+		    &bmp_raw,
+		    &bmp_scaled,
+		    &offsets,
+		    &bmp_window
+		);
 
+		if(status != BMP180_OK) {
+		    continue;
 		}
-		if(num == 1000) {
-			printf("min_x %f\r\n", find_min(data_x, num));
-			printf("min_y %f\r\n", find_min(data_y, num));
-			printf("min_z %f\r\n", find_min(data_z, num));
-			printf("max_x %f\r\n", find_max(data_x, num));
-			printf("max_y %f\r\n", find_max(data_y, num));
-			printf("max_z %f\r\n", find_max(data_z, num));
-			printf("mean_x %f\r\n", calc_mean(data_x, num));
-			printf("mean_y %f\r\n", calc_mean(data_y, num));
-			printf("mean_z %f\r\n", calc_mean(data_z, num));
-			printf("std_x %f\r\n", calc_stdDev(data_x, num));
-			printf("std_y %f\r\n", calc_stdDev(data_y, num));
-			printf("std_z %f\r\n", calc_stdDev(data_z, num));
-			num = 1001;
-		}
-		HAL_Delay(300);
+
+		float raw_pressure_pa =
+		    (float)bmp_scaled.pressure_pa;
+
+		float average_pressure_pa =
+		    BMP180_WindowGetAvg(&bmp_window);
+
+		float filtered_pressure_pa =
+		    BMP180_EMAFilter(
+		        &filter,
+		        average_pressure_pa
+		    );
+
+		float raw_height = 0.0f;
+		float average_height = 0.0f;
+		float filtered_height = 0.0f;
+
+		BMP180_CalculateRelativeAltitude(
+		    raw_pressure_pa,
+		    bmp180.startup_pressure_pa,
+		    &raw_height
+		);
+
+		BMP180_CalculateRelativeAltitude(
+		    average_pressure_pa,
+		    bmp180.startup_pressure_pa,
+		    &average_height
+		);
+
+		BMP180_CalculateRelativeAltitude(
+		    filtered_pressure_pa,
+		    bmp180.startup_pressure_pa,
+		    &filtered_height
+		);
+
+		printf(
+		    "t=%lu T=%.1f P=%lu "
+		    "RawH=%.2f AvgH=%.2f EmaH=%.2f Alpha=%.2f\r\n",
+
+		    (unsigned long)HAL_GetTick(),
+		    bmp_scaled.temperature_c,
+		    (unsigned long)bmp_scaled.pressure_pa,
+		    raw_height,
+		    average_height,
+		    filtered_height,
+		    filter.active_alpha
+		);
+
+		HAL_Delay(100U);
 	}
 	return 0;
 }
