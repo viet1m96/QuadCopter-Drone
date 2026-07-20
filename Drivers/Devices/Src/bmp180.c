@@ -95,16 +95,6 @@ BMP180_Status_t BMP180_Init(BMP180_Handle_t* bmp, I2C_HandleTypeDef* hi2c, uint8
 	return BMP180_CheckDeviceID(bmp);
 }
 
-static uint16_t bmp180_make_u16(uint8_t msb, uint8_t lsb)
-{
-    return ((uint16_t)msb << 8) | (uint16_t)lsb;
-}
-
-static int16_t bmp180_make_s16(uint8_t msb, uint8_t lsb)
-{
-    return (int16_t)bmp180_make_u16(msb, lsb);
-}
-
 BMP180_Status_t BMP180_CheckDeviceID(BMP180_Handle_t* bmp) {
 	if(bmp == NULL) return BMP180_ERR_NULL;
 	uint8_t result = 0;
@@ -123,19 +113,19 @@ BMP180_Status_t BMP180_ReadCalibrationOffsets(BMP180_Handle_t* bmp, BMP180_Calib
 	uint8_t data[22];
 	BMP180_Status_t status = bmp180_read_regs(bmp, BMP180_REG_AC1, sizeof(data), data);
 	if(status != BMP180_OK) return status;
-	offsets -> ac1 = bmp180_make_s16(data[0],  data[1]);
-	offsets -> ac2 = bmp180_make_s16(data[2],  data[3]);
-	offsets -> ac3 = bmp180_make_s16(data[4],  data[5]);
+	offsets -> ac1 = byte_utils_i16_from_be(data[0],  data[1]);
+	offsets -> ac2 = byte_utils_i16_from_be(data[2],  data[3]);
+	offsets -> ac3 = byte_utils_i16_from_be(data[4],  data[5]);
 
-	offsets -> ac4 = bmp180_make_u16(data[6],  data[7]);
-	offsets -> ac5 = bmp180_make_u16(data[8],  data[9]);
-	offsets -> ac6 = bmp180_make_u16(data[10], data[11]);
+	offsets -> ac4 = byte_utils_u16_from_be(data[6],  data[7]);
+	offsets -> ac5 = byte_utils_u16_from_be(data[8],  data[9]);
+	offsets -> ac6 = byte_utils_u16_from_be(data[10], data[11]);
 
-	offsets -> b1 = bmp180_make_s16(data[12], data[13]);
-	offsets -> b2 = bmp180_make_s16(data[14], data[15]);
-	offsets -> mb = bmp180_make_s16(data[16], data[17]);
-	offsets -> mc = bmp180_make_s16(data[18], data[19]);
-	offsets -> md = bmp180_make_s16(data[20], data[21]);
+	offsets -> b1 = byte_utils_i16_from_be(data[12], data[13]);
+	offsets -> b2 = byte_utils_i16_from_be(data[14], data[15]);
+	offsets -> mb = byte_utils_i16_from_be(data[16], data[17]);
+	offsets -> mc = byte_utils_i16_from_be(data[18], data[19]);
+	offsets -> md = byte_utils_i16_from_be(data[20], data[21]);
 	return BMP180_OK;
 }
 

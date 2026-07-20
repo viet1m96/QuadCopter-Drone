@@ -10,6 +10,7 @@
 
 #include "stdint.h"
 #include "math.h"
+#include "byte_utils.h"
 #include "stm32f4xx_hal.h"
 
 #define MPU6050_STILLNESS_SMPL_CNT200 200
@@ -39,6 +40,8 @@
 #define MPU6050_REG_GYRO_YOUTL 0x46
 #define MPU6050_REG_GYRO_ZOUTH 0x47
 #define MPU6050_REG_GYRO_ZOUTL 0x48
+#define MPU6050_REG_USER_CTRL 0x6A
+#define MPU6050_REG_INT_PIN_CFG 0x37
 
 
 
@@ -159,6 +162,19 @@ typedef enum {
 	MPU6050_INVALID_CONFIG
 } MPU6050_Status_t;
 
+typedef struct {
+	uint8_t clksrc;
+	uint8_t dlpf_config;
+	uint8_t fs_sel_config;
+	uint8_t accel_sel_config;
+	uint8_t sample_rate_value;
+} MPU6050_Config_t;
+
+
+
+
+
+
 MPU6050_Status_t MPU6050_Init(
 		MPU6050_Handle_t* mpu,
 		I2C_HandleTypeDef* hi2c ,
@@ -189,9 +205,12 @@ MPU6050_Status_t MPU6050_CalibrateAccelOffset(
 		float accel_ref_x_g,
 		float accel_ref_y_g,
 		float accel_ref_z_g);
+
+
 MPU6050_Status_t MPU6050_ResetOffsets(MPU6050_Handle_t* mpu);
 MPU6050_Status_t MPU6050_SetStillnessConfig(MPU6050_Handle_t* mpu, MPU6050_StillnessConfig_t* still);
 const char* MPU6050_ConvertStatusToString(MPU6050_Status_t status);
+MPU6050_Status_t MPU6050_EnableBypass(MPU6050_Handle_t* mpu);
 
 
 #endif /* DEVICES_INC_MPU6050_H_ */

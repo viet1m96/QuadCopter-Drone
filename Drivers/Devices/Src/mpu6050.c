@@ -224,20 +224,14 @@ MPU6050_Status_t MPU6050_ReadRawData(MPU6050_Handle_t* mpu, MPU6050_RawData_t* r
 	uint8_t result[14];
 	MPU6050_Status_t status = mpu6050_read_regs(mpu, MPU6050_REG_ACCEL_XOUTH, 14, result);
 	if(status != MPU6050_OK) return status;
-	uint16_t temp = ((uint16_t)result[0] << 8) | result[1];
-	raw -> accel_x = (int16_t) temp;
-	temp = ((uint16_t)result[2] << 8) | result[3];
-	raw -> accel_y = (int16_t) temp;
-	temp = ((uint16_t)result[4] << 8) | result[5];
-	raw -> accel_z = (int16_t) temp;
-	temp = ((uint16_t)result[6] << 8) | result[7];
-	raw -> temp = (int16_t) temp;
-	temp = ((uint16_t)result[8] << 8) | result[9];
-	raw -> gyro_x = (int16_t) temp;
-	temp = ((uint16_t)result[10] << 8) | result[11];
-	raw -> gyro_y = (int16_t) temp;
-	temp = ((uint16_t)result[12] << 8) | result[13];
-	raw -> gyro_z = (int16_t) temp;
+
+	raw -> accel_x = byte_utils_i16_from_be(result[0], result[1]);
+	raw -> accel_y = byte_utils_i16_from_be(result[2], result[3]);
+	raw -> accel_z = byte_utils_i16_from_be(result[4], result[5]);
+	raw -> temp = byte_utils_i16_from_be(result[6], result[7]);
+	raw -> gyro_x = byte_utils_i16_from_be(result[8], result[9]);
+	raw -> gyro_y = byte_utils_i16_from_be(result[10], result[11]);
+	raw -> gyro_z = byte_utils_i16_from_be(result[12], result[13]);
 	return MPU6050_OK;
 }
 
@@ -506,6 +500,8 @@ MPU6050_Status_t MPU6050_CalibrateAccelOffset(
 	return MPU6050_ERR_TIMEOUT;
 }
 
+
+
 const char* MPU6050_ConvertStatusToString(MPU6050_Status_t status) {
     switch (status) {
         case MPU6050_OK:
@@ -541,4 +537,17 @@ const char* MPU6050_ConvertStatusToString(MPU6050_Status_t status) {
         default:
             return "MPU6050_UNKNOWN_STATUS";
     }
+}
+
+MPU6050_Status_t MPU6050_EnableBypass(MPU6050_Handle_t* mpu) {
+	uint8_t value = 0;
+	MPU6050_Status_t status = mpu6050_read_reg(mpu,MPU6050_REG_USER_CTRL, &value);
+	if(status != MPU6050_OK) return status;
+	value &= ~(1U << 5);
+	status = mpu6050_write_reg(mpu, MPU6050_REG_USER_CTRL, value);
+	if(status != MPU6050_OK) return status;
+	status = mpu6050_read_reg(mpu, MPU6050_REG_INT_PIN_CFG, &value);
+	if(status != MPU6050_OK) return status;
+	value |= (1U << 1);
+	return mpu6050_write_reg(mpu, MPU6050_REG_INT_PIN_CFG, value);
 }

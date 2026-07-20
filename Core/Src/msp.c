@@ -11,7 +11,10 @@
 #include "stm32f4xx_hal_usart.h"
 
 
+
+
 void HAL_MspInit() {
+	__HAL_RCC_SYSCFG_CLK_ENABLE();
 	//Set the priority group for interrupts
 	HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 	//Enable some of system exceptions
@@ -23,6 +26,26 @@ void HAL_MspInit() {
 	HAL_NVIC_SetPriority(UsageFault_IRQn, 0, 0);
 
 }
+
+
+void Sensor_EXTI_Init(void) {
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	GPIO_InitTypeDef gpiob_config;
+	gpiob_config.Pin = GPIO_PIN_1;
+	gpiob_config.Mode = GPIO_MODE_IT_FALLING;
+	gpiob_config.Pull = GPIO_NOPULL;
+	gpiob_config.Speed = GPIO_SPEED_FAST;
+
+	HAL_GPIO_Init(GPIOB, &gpiob_config);
+
+	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_1);
+	HAL_NVIC_SetPriority(EXTI1_IRQn, 5, 0);
+	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+}
+
+
+
+
 
 void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c) {
 

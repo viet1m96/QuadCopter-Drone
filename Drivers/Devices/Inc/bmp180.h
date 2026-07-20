@@ -12,6 +12,7 @@
 #include "math.h"
 #include "stdio.h"
 #include "stdlib.h"
+#include "byte_utils.h"
 
 #define BMP180_REG_CHIP_ID 0xD0
 #define BMP180_REG_CTRL_MEAS 0xF4
