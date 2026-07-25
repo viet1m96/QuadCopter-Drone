@@ -7,27 +7,53 @@
 
 #include "hmc5883l.h"
 
+#include <float.h>
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "byte_utils.h"
+
+static HMC5883L_Status_t hmc5883l_from_hal_status(HAL_StatusTypeDef status)
+{
+    if (status == HAL_OK) return HMC5883L_OK;
+    if (status == HAL_BUSY) return HMC5883L_I2C_BUSY;
+    if (status == HAL_TIMEOUT) return HMC5883L_I2C_TIMEOUT;
+    return HMC5883L_I2C_ERROR;
+}
+
+
+static HMC5883L_Status_t hmc5883l_validate_config(
+        const HMC5883L_Config_t* config)
+{
+    if (config == NULL) {
+        return HMC5883L_ERR_NULL;
+    }
+
+    if (config->address > 0x7FU ||
+        config->meas_mode > HMC5883L_MEAS_MODE_NEG_BIAS ||
+        config->output_rate > HMC5883L_OUTPUT_RATE_75 ||
+        config->sample_avg > HMC5883L_SAMPLE_AVG_8 ||
+        config->device_gain > HMC5883L_DEVICE_GAIN_8_1 ||
+        config->mode > HMC5883L_MODE_IDLE_MODE2) {
+        return HMC5883L_INVALID_CONFIG;
+    }
+
+    return HMC5883L_OK;
+}
+
 static HMC5883L_Status_t hmc5883l_write_reg(HMC5883L_Handle_t* hmc, uint8_t reg, uint8_t value) {
 	if (hmc == NULL || hmc -> hi2c == NULL) {
 		return HMC5883L_ERR_NULL;
 	}
-	uint16_t DevAddress = (hmc -> address << 1);
-	HAL_StatusTypeDef wStatus = HAL_I2C_Mem_Write(
-			hmc -> hi2c,
-			DevAddress,
+	return hmc5883l_from_hal_status(HAL_I2C_Mem_Write(
+			hmc->hi2c,
+			(uint16_t)(hmc->config.address << 1U),
 			reg,
 			I2C_MEMADD_SIZE_8BIT,
 			&value,
-			1,
-			100);
-	if(wStatus == HAL_BUSY) {
-		return HMC5883L_I2C_BUSY;
-	} else if(wStatus == HAL_ERROR) {
-		return HMC5883L_I2C_ERROR;
-	} else if(wStatus == HAL_TIMEOUT) {
-		return HMC5883L_I2C_TIMEOUT;
-	}
-	return HMC5883L_OK;
+			1U,
+			HMC5883L_I2C_TIMEOUT_MS));
 
 }
 
@@ -35,23 +61,14 @@ static HMC5883L_Status_t hmc5883l_read_reg(HMC5883L_Handle_t* hmc, uint8_t reg, 
 	if (hmc == NULL || hmc -> hi2c == NULL || result == NULL) {
 		return HMC5883L_ERR_NULL;
 	}
-	uint16_t DevAddress = (hmc -> address << 1);
-	HAL_StatusTypeDef rStatus = HAL_I2C_Mem_Read(
-			hmc -> hi2c,
-			DevAddress,
+	return hmc5883l_from_hal_status(HAL_I2C_Mem_Read(
+			hmc->hi2c,
+			(uint16_t)(hmc->config.address << 1U),
 			reg,
 			I2C_MEMADD_SIZE_8BIT,
 			result,
-			1,
-			100);
-	if(rStatus == HAL_BUSY) {
-			return HMC5883L_I2C_BUSY;
-		} else if(rStatus == HAL_ERROR) {
-			return HMC5883L_I2C_ERROR;
-		} else if(rStatus == HAL_TIMEOUT) {
-			return HMC5883L_I2C_TIMEOUT;
-		}
-	return HMC5883L_OK;
+			1U,
+			HMC5883L_I2C_TIMEOUT_MS));
 }
 
 
@@ -59,77 +76,70 @@ static HMC5883L_Status_t hmc5883l_read_regs(HMC5883L_Handle_t* hmc, uint8_t star
 	if(hmc == NULL || hmc -> hi2c == NULL || result == NULL) {
 		return HMC5883L_ERR_NULL;
 	}
-	if(len == 0) {
+	if (len == 0U) {
 		return HMC5883L_INVALID_CONFIG;
 	}
-	uint16_t DevAddress = (hmc -> address << 1);
-	HAL_StatusTypeDef status = HAL_I2C_Mem_Read(
-	        hmc->hi2c,
-	        DevAddress,
-	        start_reg,
-	        I2C_MEMADD_SIZE_8BIT,
-	        result,
-	        len,
-	        100
-	    );
-
-   if (status == HAL_BUSY) {
-		return HMC5883L_I2C_BUSY;
-   } else if (status == HAL_TIMEOUT) {
-		return HMC5883L_I2C_TIMEOUT;
-   } else {
-	   	if(status == HAL_OK) return HMC5883L_OK;
-		return HMC5883L_I2C_ERROR;
-   }
+	return hmc5883l_from_hal_status(HAL_I2C_Mem_Read(
+		hmc->hi2c,
+		(uint16_t)(hmc->config.address << 1U),
+		start_reg,
+		I2C_MEMADD_SIZE_8BIT,
+		result,
+		len,
+		HMC5883L_I2C_TIMEOUT_MS
+	));
 }
 
-void HMC5883L_NotiStatus(HMC5883L_Status_t status, const char* str) {
-	printf("%s\r\n", str);
-	switch(status) {
-	case HMC5883L_OK:
-		printf("HMC5883L_OK\r\n");
-		return;
-	case HMC5883L_ERR_NULL:
-		printf("HMC5883L_ERR_NULL\r\n");
-		return;
+void HMC5883L_NotiStatus(HMC5883L_Status_t status, const char* str)
+{
+    if (str != NULL && str[0] != '\0') {
+        printf("%s\r\n", str);
+    }
 
-	case HMC5883L_I2C_TIMEOUT:
-		printf("HMC5883L_I2C_TIMEOUT\r\n");
-		return;
-	case HMC5883L_I2C_ERROR:
-		printf("HMC5883L_I2C_ERROR\r\n");
-		return;
-	case HMC5883L_I2C_BUSY:
-		printf("HMC5883L_I2C_BUSY\r\n");
-		return;
-	case HMC5883L_INVALID_CONFIG:
-		printf("HMC5883L_INVALID_CONFIG\r\n");
-		return;
-	case HMC5883L_BAD_DEVICE_ID:
-		printf("HMC5883L_BAD_DEVICE_ID\r\n");
-		return;
-	case HMC5883L_NOT_READY_TO_READ:
-		printf("HMC5883L_NOT_READY_TO_READ\r\n");
-		return;
-	case HMC5883L_DATA_TIMEOUT:
-		printf("HMC5883L_DATA_TIMEOUT\r\n");
-		return;
-	case HMC5883L_DATA_OVERFLOW:
-	    printf("HMC5883L_DATA_OVERFLOW\r\n");
-	    return;
-	case HMC5883L_INVALID_CALIBRATION:
-		printf("HMC5883L_INVALID_CALIBRATION\r\n");
-		return;
-	case HMC5883L_NOT_ENOUGH_SAMPLES:
-		printf("HMC5883L_NOT_ENOUGH_SAMPLES\r\n");
-		return;
-	case HMC5883L_DATA_LOCKED:
-		printf("HMC5883L_DATA_LOCKED\r\n");
-		return;
-	default:
-		printf("Unknown status\r\n");
-		return;
-	}
+    switch (status) {
+    case HMC5883L_OK:
+        printf("HMC5883L_OK\r\n");
+        break;
+    case HMC5883L_INVALID_STATE:
+        printf("HMC5883L_INVALID_STATE\r\n");
+        break;
+    case HMC5883L_ERR_NULL:
+        printf("HMC5883L_ERR_NULL\r\n");
+        break;
+    case HMC5883L_I2C_TIMEOUT:
+        printf("HMC5883L_I2C_TIMEOUT\r\n");
+        break;
+    case HMC5883L_I2C_ERROR:
+        printf("HMC5883L_I2C_ERROR\r\n");
+        break;
+    case HMC5883L_I2C_BUSY:
+        printf("HMC5883L_I2C_BUSY\r\n");
+        break;
+    case HMC5883L_INVALID_CONFIG:
+        printf("HMC5883L_INVALID_CONFIG\r\n");
+        break;
+    case HMC5883L_BAD_DEVICE_ID:
+        printf("HMC5883L_BAD_DEVICE_ID\r\n");
+        break;
+    case HMC5883L_NOT_READY_TO_READ:
+        printf("HMC5883L_NOT_READY_TO_READ\r\n");
+        break;
+    case HMC5883L_DATA_TIMEOUT:
+        printf("HMC5883L_DATA_TIMEOUT\r\n");
+        break;
+    case HMC5883L_DATA_OVERFLOW:
+        printf("HMC5883L_DATA_OVERFLOW\r\n");
+        break;
+    case HMC5883L_INVALID_CALIBRATION:
+        printf("HMC5883L_INVALID_CALIBRATION\r\n");
+        break;
+    case HMC5883L_NOT_ENOUGH_SAMPLES:
+        printf("HMC5883L_NOT_ENOUGH_SAMPLES\r\n");
+        break;
+    default:
+        printf("Unknown HMC5883L status=%d\r\n", (int)status);
+        break;
+    }
 }
 
 HMC5883L_Status_t HMC5883L_CheckDeviceID(HMC5883L_Handle_t* hmc) {
@@ -292,51 +302,30 @@ HMC5883L_Status_t HMC5883L_IsDataReady(
 }
 
 
-HMC5883L_Status_t HMC5883L_IsDataLocked(
-        HMC5883L_Handle_t* hmc,
-        uint8_t* locked)
-{
-    if (hmc == NULL || locked == NULL) {
-        return HMC5883L_ERR_NULL;
-    }
-
-    uint8_t status_reg = 0U;
-
-    HMC5883L_Status_t status = hmc5883l_read_reg(
-            hmc,
-            HMC5883L_REG_STATUS,
-            &status_reg);
-
-    if (status != HMC5883L_OK) {
-        return status;
-    }
-
-    *locked = ((status_reg & (1U << HMC5883L_STATUS_LOCK)) != 0U)
-            ? 1U
-            : 0U;
-
-    return HMC5883L_OK;
-}
-
 HMC5883L_Status_t HMC5883L_Init(
         HMC5883L_Handle_t* hmc,
         I2C_HandleTypeDef* hi2c,
-        uint8_t address,
         const HMC5883L_Config_t* config)
 {
     if (hmc == NULL || hi2c == NULL || config == NULL) {
         return HMC5883L_ERR_NULL;
     }
 
-    hmc->hi2c = hi2c;
-    hmc->address = address;
-
-    HMC5883L_Status_t status = HMC5883L_CheckDeviceID(hmc);
+    HMC5883L_Status_t status = hmc5883l_validate_config(config);
     if (status != HMC5883L_OK) {
         return status;
     }
 
+    hmc->hi2c = hi2c;
     hmc->config = *config;
+    hmc->lsb_per_gauss = 0.0f;
+    hmc->read_it_state = HMC5883L_READ_IT_IDLE;
+    hmc->read_it_result = HMC5883L_OK;
+
+    status = HMC5883L_CheckDeviceID(hmc);
+    if (status != HMC5883L_OK) {
+        return status;
+    }
 
     status = HMC5883L_SetConfigurationA(
             hmc,
@@ -347,9 +336,7 @@ HMC5883L_Status_t HMC5883L_Init(
         return status;
     }
 
-    status = HMC5883L_SetConfigurationB(
-            hmc,
-            config->device_gain);
+    status = HMC5883L_SetConfigurationB(hmc, config->device_gain);
     if (status != HMC5883L_OK) {
         return status;
     }
@@ -359,43 +346,7 @@ HMC5883L_Status_t HMC5883L_Init(
         return status;
     }
 
-    return HMC5883L_SetMode(hmc, HMC5883L_MODE_IDLE_MODE1);
-}
-
-HMC5883L_Status_t HMC5883L_StartContinuousMeasurement(
-        HMC5883L_Handle_t* hmc)
-{
-    if (hmc == NULL) {
-        return HMC5883L_ERR_NULL;
-    }
-
-    return HMC5883L_SetMode(
-            hmc,
-            HMC5883L_MODE_CONTINUOUS_MEAS);
-}
-
-HMC5883L_Status_t HMC5883L_StartSingleMeasurement(
-        HMC5883L_Handle_t* hmc)
-{
-    if (hmc == NULL) {
-        return HMC5883L_ERR_NULL;
-    }
-
-    return HMC5883L_SetMode(
-            hmc,
-            HMC5883L_MODE_SINGLE_MEAS);
-}
-
-HMC5883L_Status_t HMC5883L_StopMeasurement(
-        HMC5883L_Handle_t* hmc)
-{
-    if (hmc == NULL) {
-        return HMC5883L_ERR_NULL;
-    }
-
-    return HMC5883L_SetMode(
-            hmc,
-            HMC5883L_MODE_IDLE_MODE1);
+    return HMC5883L_SetMode(hmc, config->mode);
 }
 
 static HMC5883L_Status_t hmc5883l_wait_data_ready(
@@ -422,7 +373,13 @@ static HMC5883L_Status_t hmc5883l_wait_data_ready(
             return HMC5883L_OK;
         }
 
-    } while ((HAL_GetTick() - start_tick) < timeout_ms);
+        if ((HAL_GetTick() - start_tick) >= timeout_ms) {
+            break;
+        }
+
+        HAL_Delay(1U);
+
+    } while (1);
 
     return HMC5883L_DATA_TIMEOUT;
 }
@@ -456,7 +413,7 @@ HMC5883L_Status_t HMC5883L_ReadRawData(
         return HMC5883L_ERR_NULL;
     }
 
-    uint8_t registers[6] = {0U};
+    uint8_t registers[HMC5883L_RAW_DATA_LENGTH] = {0U};
 
     HMC5883L_Status_t status = hmc5883l_read_regs(
             hmc,
@@ -471,7 +428,7 @@ HMC5883L_Status_t HMC5883L_ReadRawData(
     return hmc5883l_decode_raw_data(registers, raw);
 }
 
-HMC5883L_Status_t HMC5883L_ReadRawDataBlocking(
+HMC5883L_Status_t HMC5883L_ReadRawDataWait(
         HMC5883L_Handle_t* hmc,
         HMC5883L_RawData_t* raw,
         uint32_t timeout_ms)
@@ -487,7 +444,7 @@ HMC5883L_Status_t HMC5883L_ReadRawDataBlocking(
         break;
 
     case HMC5883L_MODE_SINGLE_MEAS:
-        status = HMC5883L_StartSingleMeasurement(hmc);
+        status = HMC5883L_SetMode(hmc, HMC5883L_MODE_SINGLE_MEAS);
         if (status != HMC5883L_OK) {
             return status;
         }
@@ -510,8 +467,8 @@ HMC5883L_Status_t HMC5883L_ReadRawDataBlocking(
 }
 
 HMC5883L_Status_t HMC5883L_ConvertRawToScaled(
-		HMC5883L_Handle_t* hmc,
-		HMC5883L_RawData_t* raw,
+        const HMC5883L_Handle_t* hmc,
+        const HMC5883L_RawData_t* raw,
 		HMC5883L_Data_t* scaled) {
 	if(hmc == NULL || raw == NULL || scaled == NULL) {
 		return HMC5883L_ERR_NULL;
@@ -664,7 +621,7 @@ HMC5883L_Status_t HMC5883L_CalibrationFinish(
 
 
 HMC5883L_Status_t HMC5883L_ApplyCalibration(
-        HMC5883L_Handle_t* hmc,
+        const HMC5883L_Handle_t* hmc,
         const HMC5883L_Data_t* input,
         HMC5883L_Data_t* output)
 {
@@ -692,4 +649,112 @@ HMC5883L_Status_t HMC5883L_ApplyCalibration(
             hmc->calibration.soft_iron_matrix[2][2] * z;
 
     return HMC5883L_OK;
+
+}
+
+HMC5883L_Status_t HMC5883L_StartReadRawDataIT(
+        HMC5883L_Handle_t* hmc)
+{
+    if (hmc == NULL || hmc->hi2c == NULL) {
+        return HMC5883L_ERR_NULL;
+    }
+
+    if (hmc->read_it_state == HMC5883L_READ_IT_BUSY) {
+        return HMC5883L_I2C_BUSY;
+    }
+
+    if (hmc->read_it_state != HMC5883L_READ_IT_IDLE) {
+        return HMC5883L_INVALID_STATE;
+    }
+
+    hmc->read_it_state = HMC5883L_READ_IT_BUSY;
+    hmc->read_it_result = HMC5883L_OK;
+
+    HMC5883L_Status_t status = hmc5883l_from_hal_status(
+            HAL_I2C_Mem_Read_IT(
+                    hmc->hi2c,
+                    (uint16_t)(hmc->config.address << 1U),
+                    HMC5883L_REG_X_MSB,
+                    I2C_MEMADD_SIZE_8BIT,
+                    hmc->read_it_buffer,
+                    HMC5883L_RAW_DATA_LENGTH));
+
+    if (status != HMC5883L_OK) {
+        hmc->read_it_state = HMC5883L_READ_IT_IDLE;
+        hmc->read_it_result = HMC5883L_OK;
+    }
+
+    return status;
+}
+
+HMC5883L_Status_t HMC5883L_OnI2CMemRxComplete(
+        HMC5883L_Handle_t *hmc,
+        I2C_HandleTypeDef *hi2c) {
+	if(hmc == NULL || hmc->hi2c == NULL || hi2c == NULL) {
+		return HMC5883L_ERR_NULL;
+	}
+	if(hi2c != hmc->hi2c || hmc->read_it_state != HMC5883L_READ_IT_BUSY) {
+		return HMC5883L_INVALID_STATE;
+	}
+	hmc->read_it_result = HMC5883L_OK;
+	hmc->read_it_state = HMC5883L_READ_IT_COMPLETE;
+	return HMC5883L_OK;
+}
+
+HMC5883L_Status_t HMC5883L_OnI2CError(
+		HMC5883L_Handle_t* hmc,
+		I2C_HandleTypeDef* hi2c) {
+	if(hmc == NULL || hmc->hi2c == NULL || hi2c == NULL) {
+		return HMC5883L_ERR_NULL;
+	}
+	if(hmc->hi2c != hi2c || hmc->read_it_state != HMC5883L_READ_IT_BUSY) {
+		return HMC5883L_INVALID_STATE;
+	}
+	hmc->read_it_result = HMC5883L_I2C_ERROR;
+	hmc->read_it_state = HMC5883L_READ_IT_ERROR;
+	return HMC5883L_OK;
+}
+
+HMC5883L_Status_t HMC5883L_GetRawDataIT(
+        HMC5883L_Handle_t* hmc,
+        HMC5883L_RawData_t* raw)
+{
+    if (hmc == NULL || raw == NULL) {
+        return HMC5883L_ERR_NULL;
+    }
+
+    if (hmc->read_it_state == HMC5883L_READ_IT_BUSY) {
+        return HMC5883L_I2C_BUSY;
+    }
+
+    if (hmc->read_it_state == HMC5883L_READ_IT_IDLE) {
+        return HMC5883L_NOT_READY_TO_READ;
+    }
+
+    if (hmc->read_it_state == HMC5883L_READ_IT_ERROR) {
+        HMC5883L_Status_t status = hmc->read_it_result;
+        hmc->read_it_state = HMC5883L_READ_IT_IDLE;
+        hmc->read_it_result = HMC5883L_OK;
+        return status;
+    }
+
+    if (hmc->read_it_state != HMC5883L_READ_IT_COMPLETE) {
+        return HMC5883L_INVALID_STATE;
+    }
+
+    HMC5883L_Status_t status = hmc5883l_decode_raw_data(
+            hmc->read_it_buffer,
+            raw);
+
+    hmc->read_it_state = HMC5883L_READ_IT_IDLE;
+    hmc->read_it_result = HMC5883L_OK;
+
+    return status;
+}
+
+HMC5883L_ReadITState_t HMC5883L_GetReadStateIT(
+        const HMC5883L_Handle_t *hmc) {
+	if(hmc == NULL) return HMC5883L_READ_IT_ERROR;
+	return hmc->read_it_state;
+
 }

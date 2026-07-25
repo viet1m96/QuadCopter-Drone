@@ -8,14 +8,9 @@
 #ifndef DEVICES_INC_HMC5883L_H_
 #define DEVICES_INC_HMC5883L_H_
 
-#include <float.h>
-#include <math.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "stm32f4xx_hal.h"
-#include "byte_utils.h"
 #include "vector_utils.h"
 
 #ifdef __cplusplus
@@ -27,6 +22,8 @@ extern "C" {
 #define HMC5883L_ID                         "H43"
 #define HMC5883L_ID_LENGTH                  3U
 #define HMC5883L_OVERFLOW_VALUE             ((int16_t)-4096)
+#define HMC5883L_RAW_DATA_LENGTH            6U
+#define HMC5883L_I2C_TIMEOUT_MS             100U
 
 /* ==================== Calibration constants ==================== */
 
@@ -117,12 +114,12 @@ extern "C" {
 
 /* ==================== Status register ==================== */
 
-#define HMC5883L_STATUS_LOCK                  1U
 #define HMC5883L_STATUS_RDY                   0U
 
 /* ==================== Public data types ==================== */
 
 typedef struct {
+	uint8_t address;
     uint8_t meas_mode;
     uint8_t output_rate;
     uint8_t sample_avg;
@@ -132,6 +129,7 @@ typedef struct {
 
 typedef enum {
     HMC5883L_OK = 0,
+	HMC5883L_INVALID_STATE,
     HMC5883L_ERR_NULL,
     HMC5883L_I2C_TIMEOUT,
     HMC5883L_I2C_ERROR,
@@ -141,7 +139,6 @@ typedef enum {
     HMC5883L_NOT_READY_TO_READ,
     HMC5883L_DATA_TIMEOUT,
     HMC5883L_DATA_OVERFLOW,
-    HMC5883L_DATA_LOCKED,
     HMC5883L_INVALID_CALIBRATION,
     HMC5883L_NOT_ENOUGH_SAMPLES
 } HMC5883L_Status_t;
@@ -172,12 +169,24 @@ typedef struct {
     uint32_t rejected_samples;
 } HMC5883L_CalibrationSession_t;
 
+
+typedef enum {
+	HMC5883L_READ_IT_IDLE = 0,
+	HMC5883L_READ_IT_BUSY,
+	HMC5883L_READ_IT_COMPLETE,
+	HMC5883L_READ_IT_ERROR
+} HMC5883L_ReadITState_t;
+
 typedef struct {
     I2C_HandleTypeDef* hi2c;
-    uint8_t address;
     float lsb_per_gauss;
     HMC5883L_Config_t config;
     HMC5883L_Calibration_t calibration;
+
+    uint8_t read_it_buffer[HMC5883L_RAW_DATA_LENGTH];
+    volatile HMC5883L_ReadITState_t read_it_state;
+    volatile HMC5883L_Status_t read_it_result;
+
 } HMC5883L_Handle_t;
 
 /* ==================== Debug/status API ==================== */
@@ -208,22 +217,8 @@ HMC5883L_Status_t HMC5883L_SetMode(
 HMC5883L_Status_t HMC5883L_Init(
         HMC5883L_Handle_t* hmc,
         I2C_HandleTypeDef* hi2c,
-        uint8_t address,
         const HMC5883L_Config_t* config);
 
-/* ==================== Measurement control API ==================== */
-
-/* Starts continuous conversion and returns after writing the mode register. */
-HMC5883L_Status_t HMC5883L_StartContinuousMeasurement(
-        HMC5883L_Handle_t* hmc);
-
-/* Starts one conversion and returns immediately without waiting for DRDY. */
-HMC5883L_Status_t HMC5883L_StartSingleMeasurement(
-        HMC5883L_Handle_t* hmc);
-
-/* Places the sensor in idle mode. */
-HMC5883L_Status_t HMC5883L_StopMeasurement(
-        HMC5883L_Handle_t* hmc);
 
 /* ==================== Status/read API ==================== */
 
@@ -231,22 +226,19 @@ HMC5883L_Status_t HMC5883L_IsDataReady(
         HMC5883L_Handle_t* hmc,
         uint8_t* ready);
 
-HMC5883L_Status_t HMC5883L_IsDataLocked(
-        HMC5883L_Handle_t* hmc,
-        uint8_t* locked);
 
 HMC5883L_Status_t HMC5883L_ReadRawData(
         HMC5883L_Handle_t* hmc,
         HMC5883L_RawData_t* raw);
 
-HMC5883L_Status_t HMC5883L_ReadRawDataBlocking(
+HMC5883L_Status_t HMC5883L_ReadRawDataWait(
         HMC5883L_Handle_t* hmc,
         HMC5883L_RawData_t* raw,
         uint32_t timeout_ms);
 
 HMC5883L_Status_t HMC5883L_ConvertRawToScaled(
-        HMC5883L_Handle_t* hmc,
-        HMC5883L_RawData_t* raw,
+        const HMC5883L_Handle_t* hmc,
+        const HMC5883L_RawData_t* raw,
         HMC5883L_Data_t* scaled);
 
 /* ==================== Calibration API ==================== */
@@ -266,9 +258,31 @@ HMC5883L_Status_t HMC5883L_CalibrationFinish(
         const HMC5883L_CalibrationSession_t* session);
 
 HMC5883L_Status_t HMC5883L_ApplyCalibration(
-        HMC5883L_Handle_t* hmc,
+        const HMC5883L_Handle_t* hmc,
         const HMC5883L_Data_t* input,
         HMC5883L_Data_t* output);
+
+/* ==================== Interrupt API ==================== */
+
+
+HMC5883L_Status_t HMC5883L_StartReadRawDataIT(
+        HMC5883L_Handle_t *hmc);
+
+HMC5883L_Status_t HMC5883L_OnI2CMemRxComplete(
+        HMC5883L_Handle_t *hmc,
+        I2C_HandleTypeDef *hi2c);
+
+HMC5883L_Status_t HMC5883L_OnI2CError(
+        HMC5883L_Handle_t *hmc,
+        I2C_HandleTypeDef *hi2c);
+
+HMC5883L_Status_t HMC5883L_GetRawDataIT(
+        HMC5883L_Handle_t *hmc,
+        HMC5883L_RawData_t *raw);
+
+HMC5883L_ReadITState_t HMC5883L_GetReadStateIT(
+        const HMC5883L_Handle_t *hmc);
+
 
 #ifdef __cplusplus
 }
