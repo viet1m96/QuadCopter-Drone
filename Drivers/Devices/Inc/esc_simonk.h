@@ -44,7 +44,7 @@ typedef enum {
 typedef struct {
 	MotorPWM_Handle_t* motor_pwm;
 	ESC_Config_t config;
-	ESC_State_t state;
+	volatile ESC_State_t state;
 	float last_throttles[MOTOR_PWM_QUANTITY];
 
 	uint32_t start_arming_time_ms;
