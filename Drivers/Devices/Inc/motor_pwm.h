@@ -10,8 +10,8 @@
 
 #include "stm32f4xx_hal.h"
 #include <stdint.h>
+#include "motor_common.h"
 
-#define MOTOR_PWM_QUANTITY 4U
 
 typedef enum {
     MOTOR_PWM_OK = 0,
