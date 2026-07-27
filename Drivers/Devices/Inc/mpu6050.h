@@ -302,5 +302,10 @@ MPU6050_Status_t MPU6050_GetRawDataIT(
 
 MPU6050_ReadITState_t MPU6050_GetReadStateIT(
         const MPU6050_Handle_t *mpu);
+MPU6050_Status_t MPU6050_AbortReadIT(
+        MPU6050_Handle_t *mpu);
+MPU6050_Status_t MPU6050_OnI2CAbortComplete(
+        MPU6050_Handle_t *mpu,
+        I2C_HandleTypeDef *hi2c);
 
 #endif /* DEVICES_INC_MPU6050_H_ */

@@ -104,10 +104,7 @@ int main(void)
     I2C1_Init();
     USART2_UART_Init();
 
-    /*
-     * PB1/EXTI1 đã được cấu hình trong msp.c.
-     * EXTI1_IRQHandler đã được định nghĩa trong it.c.
-     */
+
     Sensor_EXTI_Init();
 
 

@@ -279,7 +279,11 @@ HMC5883L_Status_t HMC5883L_GetRawDataIT(
 
 HMC5883L_ReadITState_t HMC5883L_GetReadStateIT(
         const HMC5883L_Handle_t *hmc);
-
+HMC5883L_Status_t HMC5883L_AbortReadIT(
+        HMC5883L_Handle_t* hmc);
+HMC5883L_Status_t HMC5883L_OnI2CAbortComplete(
+        HMC5883L_Handle_t* hmc,
+        I2C_HandleTypeDef* hi2c);
 
 #ifdef __cplusplus
 }
