@@ -30,9 +30,6 @@ extern "C" {
 #define HMC5883L_CAL_MIN_SAMPLES            100U
 #define HMC5883L_CAL_MIN_AXIS_RANGE_G       0.01f
 
-#define HMC5883L_CAL_SENSOR_SCALE_VALID     (1U << 0)
-#define HMC5883L_CAL_HARD_IRON_VALID        (1U << 1)
-#define HMC5883L_CAL_SOFT_IRON_VALID        (1U << 2)
 
 /* ==================== Register map ==================== */
 
@@ -159,7 +156,6 @@ typedef struct {
     Vector3f_t sensor_scale;
     Vector3f_t hard_iron_bias_g;
     float soft_iron_matrix[3][3];
-    uint8_t valid_flags;
 } HMC5883L_Calibration_t;
 
 typedef struct {
@@ -174,7 +170,8 @@ typedef enum {
 	HMC5883L_READ_IT_IDLE = 0,
 	HMC5883L_READ_IT_BUSY,
 	HMC5883L_READ_IT_COMPLETE,
-	HMC5883L_READ_IT_ERROR
+	HMC5883L_READ_IT_ERROR,
+	HMC5883L_READ_IT_ABORTING
 } HMC5883L_ReadITState_t;
 
 typedef struct {
@@ -265,7 +262,7 @@ HMC5883L_Status_t HMC5883L_ApplyCalibration(
 /* ==================== Interrupt API ==================== */
 
 
-HMC5883L_Status_t HMC5883L_StartReadRawDataIT(
+HMC5883L_Status_t HMC5883L_StartReadAfterDRDYIT(
         HMC5883L_Handle_t *hmc);
 
 HMC5883L_Status_t HMC5883L_OnI2CMemRxComplete(

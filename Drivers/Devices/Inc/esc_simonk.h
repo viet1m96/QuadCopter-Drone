@@ -49,7 +49,7 @@ typedef struct {
 
 	uint32_t start_arming_time_ms;
 	uint32_t last_command_ms;
-
+	uint8_t output_safe;
 	ESC_FailSafeReason_t failsafe_reason;
 } ESC_Handle_t;
 

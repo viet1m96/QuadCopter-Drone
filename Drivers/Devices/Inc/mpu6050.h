@@ -142,6 +142,7 @@ typedef enum {
     MPU6050_ERR_NULL,
     MPU6050_ERR_BAD_DEVICE_ID,
     MPU6050_ERR_MOVING,
+	MPU6050_ERR_UNINITIALIZED,
     MPU6050_NOT_READY_TO_READ,
     MPU6050_INVALID_CONFIG
 } MPU6050_Status_t;
@@ -150,7 +151,8 @@ typedef enum {
     MPU6050_READ_IT_IDLE = 0,
     MPU6050_READ_IT_BUSY,
     MPU6050_READ_IT_COMPLETE,
-    MPU6050_READ_IT_ERROR
+    MPU6050_READ_IT_ERROR,
+	MPU6050_READ_IT_ABORTING
 } MPU6050_ReadITState_t;
 
 typedef struct {
@@ -183,6 +185,7 @@ typedef struct {
     uint8_t read_it_buffer[MPU6050_RAW_DATA_LENGTH];
     volatile MPU6050_ReadITState_t read_it_state;
     volatile MPU6050_Status_t read_it_result;
+    uint8_t initialized;
 } MPU6050_Handle_t;
 
 /* ==================== Debug/Status API ==================== */
@@ -196,30 +199,7 @@ void MPU6050_NotiStatus(
         MPU6050_Status_t status,
         const char *message);
 
-MPU6050_Status_t MPU6050_CheckDeviceID(MPU6050_Handle_t *mpu);
-MPU6050_Status_t MPU6050_WakeUpChip(MPU6050_Handle_t *mpu);
 
-/* ==================== Configuration API ==================== */
-
-MPU6050_Status_t MPU6050_SetClockSource(
-        MPU6050_Handle_t *mpu,
-        uint8_t clksrc);
-
-MPU6050_Status_t MPU6050_SetDLPF(
-        MPU6050_Handle_t *mpu,
-        uint8_t dlpf_config);
-
-MPU6050_Status_t MPU6050_SetGyroConfig(
-        MPU6050_Handle_t *mpu,
-        uint8_t fs_sel_config);
-
-MPU6050_Status_t MPU6050_SetAccelConfig(
-        MPU6050_Handle_t *mpu,
-        uint8_t accel_sel_config);
-
-MPU6050_Status_t MPU6050_SetSampleRate(
-        MPU6050_Handle_t *mpu,
-        uint8_t sample_rate_div);
 
 /* ==================== Blocking API ==================== */
 

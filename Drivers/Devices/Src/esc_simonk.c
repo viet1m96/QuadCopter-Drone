@@ -16,9 +16,16 @@ ESC_Status_t ESC_Start(ESC_Handle_t* esc) {
 
 	MotorPWM_Status_t motor_status = MotorPWM_Start(esc->motor_pwm, esc->config.stop_pulse_us);
 	if(motor_status != MOTOR_PWM_OK) {
+		esc->output_safe = 0U;
 		return ESC_ERR_MOTOR_PWM;
 	}
-	esc->state= ESC_STATE_DISARMED;
+
+	for (uint32_t i = 0U; i < MOTOR_PWM_QUANTITY; ++i) {
+		esc->last_throttles[i] = 0.0f;
+	}
+
+	esc->output_safe = 1U;
+	esc->state = ESC_STATE_DISARMED;
 	return ESC_OK;
 }
 
@@ -29,7 +36,11 @@ ESC_Status_t ESC_BeginArming(
 	if(esc->state == ESC_STATE_UNINITIALIZED) return ESC_ERR_UNINITIALIZED;
 	if(esc->state != ESC_STATE_DISARMED) return ESC_ERR_INVALID_STATE;
 	MotorPWM_Status_t status = MotorPWM_WriteAllSameUs(esc->motor_pwm, esc->config.stop_pulse_us);
-	if(status != MOTOR_PWM_OK) return ESC_ERR_MOTOR_PWM;
+	if(status != MOTOR_PWM_OK) {
+		esc->output_safe = 0U;
+		return ESC_ERR_MOTOR_PWM;
+	}
+	esc->output_safe = 1U;
 	esc->start_arming_time_ms = now_ms;
 	esc->state = ESC_STATE_ARMING;
 	return ESC_OK;
@@ -90,6 +101,7 @@ ESC_Status_t ESC_SetThrottleAll(
  	}
 	MotorPWM_Status_t status = MotorPWM_WriteAllUs(esc->motor_pwm, pulse_us);
 	if(status != MOTOR_PWM_OK) return ESC_ERR_MOTOR_PWM;
+	esc->output_safe = 0U;
 	for(uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
 		esc->last_throttles[i] = throttles[i];
 	}
@@ -116,6 +128,7 @@ ESC_Status_t ESC_SetThrottleAllSame(
 
 	MotorPWM_Status_t status = MotorPWM_WriteAllSameUs(esc->motor_pwm, pulse_us);
 	if(status != MOTOR_PWM_OK) return ESC_ERR_MOTOR_PWM;
+	esc->output_safe = 0U;
 	for(uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
 		esc->last_throttles[i] = throttle;
 	}
@@ -134,10 +147,12 @@ ESC_Status_t ESC_Disarm(ESC_Handle_t* esc) {
 	{
 		return ESC_ERR_INVALID_STATE;
 	}
+	esc->output_safe = 0U;
 	MotorPWM_Status_t status = MotorPWM_WriteAllSameUs(esc->motor_pwm, esc->config.stop_pulse_us);
 	if(status != MOTOR_PWM_OK) {
 		return ESC_ERR_MOTOR_PWM;
 	}
+	esc->output_safe = 1U;
 	for(uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
 		esc->last_throttles[i] = 0.0f;
 	}
@@ -157,14 +172,16 @@ ESC_Status_t ESC_TriggerFailSafe(
 	if(esc->state != ESC_STATE_ARMED && esc->state != ESC_STATE_ARMING) {
 		return ESC_ERR_INVALID_STATE;
 	}
-	esc->state = ESC_STATE_FAILSAFE;
 	esc->failsafe_reason = reason;
 	esc->last_command_ms = now_ms;
+	esc->state = ESC_STATE_FAILSAFE;
+	esc->output_safe = 0U;
 	MotorPWM_Status_t status = MotorPWM_WriteAllSameUs(esc->motor_pwm, esc->config.stop_pulse_us);
 	if(status != MOTOR_PWM_OK) return ESC_ERR_MOTOR_PWM;
 	for(uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
 		esc->last_throttles[i] = 0.0f;
 	}
+	esc->output_safe = 1U;
 	return ESC_OK;
 }
 
@@ -172,6 +189,7 @@ ESC_Status_t ESC_ClearFailSafe(
 		ESC_Handle_t* esc) {
 	if(esc == NULL || esc->motor_pwm == NULL) return ESC_ERR_NULL;
 	if(esc->state != ESC_STATE_FAILSAFE) return ESC_ERR_INVALID_STATE;
+	esc->output_safe = 0U;
 	MotorPWM_Status_t status = MotorPWM_WriteAllSameUs(
 	                    			esc->motor_pwm,
 									esc->config.stop_pulse_us);
@@ -183,21 +201,39 @@ ESC_Status_t ESC_ClearFailSafe(
 	for (uint32_t i = 0U; i < MOTOR_PWM_QUANTITY; ++i) {
 		esc->last_throttles[i] = 0.0f;
 	}
-
+	esc->output_safe = 1U;
 	esc->failsafe_reason = ESC_FAILSAFE_NONE;
 	esc->last_command_ms = 0U;
 	esc->state = ESC_STATE_DISARMED;
 	return ESC_OK;
 }
-ESC_Status_t ESC_Stop(ESC_Handle_t* esc) {
-	if(esc == NULL || esc->motor_pwm == NULL) return ESC_ERR_NULL;
-	if(esc->state != ESC_STATE_FAILSAFE && esc->state != ESC_STATE_DISARMED) {
-		return ESC_ERR_INVALID_STATE;
-	}
-	MotorPWM_Status_t status = MotorPWM_Stop(esc->motor_pwm);
-	if(status != MOTOR_PWM_OK) return ESC_ERR_MOTOR_PWM;
-	esc->state = ESC_STATE_STOPPED;
-	return ESC_OK;
+ESC_Status_t ESC_Stop(ESC_Handle_t* esc)
+{
+    if (esc == NULL || esc->motor_pwm == NULL) {
+        return ESC_ERR_NULL;
+    }
+
+    if (esc->state != ESC_STATE_FAILSAFE &&
+        esc->state != ESC_STATE_DISARMED)
+    {
+        return ESC_ERR_INVALID_STATE;
+    }
+
+    MotorPWM_Status_t status =
+            MotorPWM_Stop(esc->motor_pwm);
+
+    if (status != MOTOR_PWM_OK) {
+        return ESC_ERR_MOTOR_PWM;
+    }
+
+    for (uint32_t i = 0U; i < MOTOR_PWM_QUANTITY; ++i) {
+        esc->last_throttles[i] = 0.0f;
+    }
+
+    esc->output_safe = 1U;
+    esc->state = ESC_STATE_STOPPED;
+
+    return ESC_OK;
 }
 
 
@@ -214,15 +250,14 @@ ESC_Status_t ESC_Init(
     }
 
     if (motor_pwm->htim == NULL ||
-        motor_pwm->initialized == 0U)
+        motor_pwm->state == MOTOR_PWM_STATE_UNINITIALIZED ||
+		motor_pwm->state == MOTOR_PWM_STATE_STARTED ||
+		motor_pwm->state == MOTOR_PWM_STATE_FAULT)
     {
         return ESC_ERR_MOTOR_PWM;
     }
 
-    if (motor_pwm->started != 0U)
-    {
-        return ESC_ERR_INVALID_STATE;
-    }
+
 
     if (config->stop_pulse_us == 0U ||
         config->stop_pulse_us > config->idle_pulse_us ||
@@ -247,6 +282,7 @@ ESC_Status_t ESC_Init(
     esc->start_arming_time_ms = 0U;
     esc->last_command_ms = 0U;
     esc->failsafe_reason = ESC_FAILSAFE_NONE;
+    esc->output_safe = 0U;
 
     return ESC_OK;
 }
