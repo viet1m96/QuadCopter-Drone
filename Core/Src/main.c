@@ -7,34 +7,28 @@
 #include "mpu6050.h"
 #include "hmc5883l.h"
 #include "msp.h"
+#include "ibus.h"
 
 #include <math.h>
 #include <stdio.h>
 
 
-#define HMC5883L_CALIBRATION_TIME_MS    30000U
 
 
-I2C_HandleTypeDef hi2c1;
+
+
 UART_HandleTypeDef husart2;
+UART_HandleTypeDef husart1;
+DMA_HandleTypeDef hdma2_usart1_rx;
+IBUS_Handle_t ibus;
 
-MPU6050_Handle_t mpu6050;
-
-HMC5883L_Handle_t hmc5883l;
-HMC5883L_RawData_t hmc_raw;
-HMC5883L_Data_t hmc_scaled;
-HMC5883L_Data_t hmc_calibrated;
-HMC5883L_CalibrationSession_t hmc_cal_session;
+static volatile uint8_t ibus_frame_ready = 0U;
+static volatile IBUS_Status_t last_rx_status = IBUS_OK;
 
 
 
 
-/*
- * ISR chỉ tăng số sự kiện DRDY.
- * Không đọc I2C trong callback ngắt.
- */
-static volatile uint32_t hmc_drdy_pending = 0U;
-static volatile uint32_t hmc_drdy_total = 0U;
+
 
 
 void SystemClockConfig(void)
@@ -43,24 +37,7 @@ void SystemClockConfig(void)
 }
 
 
-void I2C1_Init(void)
-{
-    hi2c1.Instance = I2C1;
 
-    hi2c1.Init.ClockSpeed = I2C_CLOCK_SPEED_SM;
-    hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-    hi2c1.Init.OwnAddress1 = 0U;
-    hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-    hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-    hi2c1.Init.OwnAddress2 = 0U;
-    hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-    hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-
-    if (HAL_I2C_Init(&hi2c1) != HAL_OK) {
-        while (1) {
-        }
-    }
-}
 
 
 void USART2_UART_Init(void)
@@ -82,13 +59,56 @@ void USART2_UART_Init(void)
 }
 
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-    if (GPIO_Pin == GPIO_PIN_1) {
-        hmc_drdy_pending++;
-        hmc_drdy_total++;
-    }
+void USART1_UART_Init(void) {
+	husart1.Instance = USART1;
+	husart1.Init.BaudRate = 115200U;
+	husart1.Init.WordLength = UART_WORDLENGTH_8B;
+	husart1.Init.StopBits = UART_STOPBITS_1;
+	husart1.Init.Parity = UART_PARITY_NONE;
+	husart1.Init.Mode = UART_MODE_RX;
+	husart1.Init.OverSampling = UART_OVERSAMPLING_16;
+	husart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	if(HAL_UART_Init(&husart1) != HAL_OK) {
+		printf("usart1 init failed!/r/n");
+	}
 }
+
+
+void DMA_UART1_Init(void) {
+	__HAL_RCC_DMA2_CLK_ENABLE();
+	hdma2_usart1_rx.Instance = DMA2_Stream2;
+	hdma2_usart1_rx.Init.Channel = DMA_CHANNEL_4;
+	hdma2_usart1_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+	hdma2_usart1_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+	hdma2_usart1_rx.Init.MemInc = DMA_MINC_ENABLE;
+	hdma2_usart1_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+	hdma2_usart1_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+	hdma2_usart1_rx.Init.Mode = DMA_NORMAL;
+	hdma2_usart1_rx.Init.Priority = DMA_PRIORITY_HIGH;
+	hdma2_usart1_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+
+	if(HAL_DMA_Init(&hdma2_usart1_rx) != HAL_OK) {
+		printf("usart1 init failed!\r\n");
+	}
+
+	__HAL_LINKDMA(&husart1, hdmarx, hdma2_usart1_rx);
+	HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 6, 0);
+	HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+}
+
+
+
+void HAL_UARTEx_RxEventCallback(
+		UART_HandleTypeDef *huart,
+		uint16_t Size) {
+	if(huart -> Instance == USART1) {
+		last_rx_status = IBUS_OnRxEvent(&ibus, HAL_GetTick(), Size);
+		if(last_rx_status == IBUS_OK) {
+			ibus_frame_ready = 1U;
+		}
+	}
+}
+
 
 
 
@@ -96,20 +116,56 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 int main(void)
 {
-
-
+	IBUS_Status_t status;
+    uint16_t throttle_min = UINT16_MAX;
+	uint16_t throttle_max = 0U;
     HAL_Init();
-
     SystemClockConfig();
-    I2C1_Init();
     USART2_UART_Init();
+    USART1_UART_Init();
+    DMA_UART1_Init();
 
-
-    Sensor_EXTI_Init();
-
-
-
+    status = IBUS_Init(&ibus, &husart1);
+    if(status != IBUS_OK) {
+    	printf("IBUS_Init failed! Code: %d\r\n", (int)(status));
+    	return 0;
+    }
+    status = IBUS_Start(&ibus);
+    if (status != IBUS_OK)
+    {
+	   printf("IBUS_Start failed: %d\r\n", (int)status);
+	   return 0;
+    }
     while (1) {
+    	uint32_t now_ms = HAL_GetTick();
+    	status = IBUS_Update(&ibus, now_ms);
+    	if(ibus_frame_ready == 1U) {
+    		uint16_t throttle;
+    		ibus_frame_ready = 0U;
+    		throttle = ibus.latest_valid_data.channels[2U];
+    		throttle_min = (throttle_min < throttle) ? throttle_min : throttle;
+    		throttle_max = (throttle_max > throttle) ? throttle_max : throttle;
+    		printf(
+				"CH1=%u CH2=%u CH3=%u CH4=%u | "
+				"Throttle=%u us | Min=%u us | Max=%u us\r\n",
+				ibus.latest_valid_data.channels[0],
+				ibus.latest_valid_data.channels[1],
+				ibus.latest_valid_data.channels[2],
+				ibus.latest_valid_data.channels[3],
+				throttle,
+				throttle_min,
+				throttle_max);
+    	}
+    	if (status == IBUS_ERR_TIMEOUT)
+		{
+			static uint32_t last_timeout_print_ms = 0U;
 
+			if ((now_ms - last_timeout_print_ms) >= 500U)
+			{
+				last_timeout_print_ms = now_ms;
+				printf("iBus signal lost\r\n");
+			}
+		}
+    	HAL_Delay(10U);
     }
 }

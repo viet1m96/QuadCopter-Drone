@@ -7,11 +7,25 @@
 
 #include "stm32f4xx_hal.h"
 
+
+extern UART_HandleTypeDef husart1;
+extern DMA_HandleTypeDef hdma2_usart1_rx;
+
 void SysTick_Handler(void)
 {
     HAL_IncTick();
 }
 
-void EXTI1_IRQHandler(void) {
-	HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+
+void Error_Handler(void) {
+
+}
+
+
+void DMA2_Stream2_IRQHandler(void) {
+	HAL_DMA_IRQHandler(&hdma2_usart1_rx);
+}
+
+void USART1_IRQHandler(void) {
+	HAL_UART_IRQHandler(&husart1);
 }
