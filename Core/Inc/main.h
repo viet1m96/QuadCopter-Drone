@@ -24,6 +24,12 @@ extern I2C_HandleTypeDef hi2c1;
 
 #define I2C_CLOCK_SPEED_SM 100000
 #define I2C_CLOCK_SPEED_FM 400000
+#define TIM3_PRESCALER	   89U
+#define TIM3_PERIOD		   19999U
+
+
+
+
 
 #define MPU6050_ADDRESS 0x68U
 #define BMP180_ADDRESS 0x77U

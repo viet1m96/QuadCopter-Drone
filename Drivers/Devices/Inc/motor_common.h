@@ -10,6 +10,7 @@
 
 #define MOTOR_PWM_QUANTITY 4U
 
+
 typedef enum {
 	MOTOR_FRONT_LEFT = 0,
 	MOTOR_FRONT_RIGHT,

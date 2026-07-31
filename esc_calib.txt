@@ -1,0 +1,11 @@
+MotorPWM_WriteAllSameUs(
+	        &motor_pwm,
+	        MAX_THROTTLE);
+
+	printf("PWM max sent: connect ESC battery now\r\n");
+	HAL_Delay(5000U);
+	MotorPWM_WriteAllSameUs(
+	        &motor_pwm,
+	        MIN_THROTTLE);
+	printf("PWM min sent\r\n");
+	HAL_Delay(5000U);
