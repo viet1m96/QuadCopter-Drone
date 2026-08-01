@@ -1,3 +1,4 @@
+//After MotorSetup
 MotorPWM_WriteAllSameUs(
 	        &motor_pwm,
 	        MAX_THROTTLE);
