@@ -22,7 +22,7 @@ static RCInput_Handle_t rc_inp;
 static MotorPWM_Handle_t motor_pwm;
 static QueueHandle_t receiver_queue = NULL;
 static QueueHandle_t process_queue = NULL;
-
+static ReceiverTask_Context_t receiver_ctx;
 
 
 
@@ -49,11 +49,14 @@ int main(void)
 		return 0;
 	}
 
+
+
 	if(ReceiverTask_Setup(
+			&receiver_ctx,
 			&ibus,
 			&rc_inp,
-			&receiver_queue,
-			&process_queue) != pdPASS) {
+			receiver_queue,
+			process_queue) != pdPASS) {
 		return 0;
 	}
 

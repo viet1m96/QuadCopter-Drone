@@ -16,8 +16,8 @@
 typedef struct {
 	IBUS_Handle_t* receiver_ibus;
 	RCInput_Handle_t* rc_inp;
-	QueueHandle_t* receiver_queue;
-	QueueHandle_t* process_queue;
+	QueueHandle_t receiver_queue;
+	QueueHandle_t process_queue;
 } ReceiverTask_Context_t;
 
 BaseType_t ReceiverTask_Create(ReceiverTask_Context_t* receiver_ctx);

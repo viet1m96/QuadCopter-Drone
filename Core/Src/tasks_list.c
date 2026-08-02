@@ -22,7 +22,7 @@ static void ReceiverTask(void *argument) {
 
 	for(;;) {
 		BaseType_t received = xQueueReceive(
-										*ctx->receiver_queue,
+										ctx->receiver_queue,
 										&frame,
 										pdMS_TO_TICKS(IBUS_TIMEOUT_MS));
 		if(received == pdPASS) {
@@ -34,7 +34,7 @@ static void ReceiverTask(void *argument) {
 				//TODO
 				continue;
 			}
-			xQueueOverwrite(*ctx->process_queue, &command);
+			xQueueOverwrite(ctx->process_queue, &command);
 		} else {
 			if(IBUS_Update(
 			                ctx->receiver_ibus,
