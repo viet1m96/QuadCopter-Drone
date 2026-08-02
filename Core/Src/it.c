@@ -11,11 +11,6 @@
 extern UART_HandleTypeDef husart1;
 extern DMA_HandleTypeDef hdma2_usart1_rx;
 
-void SysTick_Handler(void)
-{
-    HAL_IncTick();
-}
-
 
 void Error_Handler(void) {
 

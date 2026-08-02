@@ -18,7 +18,7 @@ static float pid_derivative_low_pass_filter(
 	if(cut_of_hz <= 0.0f) {
 		return derivative;
 	}
-	float time_constant = 1.0f / PID_CONTROLLER_TWO_PI * cut_of_hz;
+	float time_constant = 1.0f / (PID_CONTROLLER_TWO_PI * cut_of_hz);
 	float alpha = dt_s / (time_constant + dt_s);
 
 	return prev_filtered + alpha *(derivative - prev_filtered);
