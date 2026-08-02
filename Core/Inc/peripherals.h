@@ -1,0 +1,18 @@
+/*
+ * peripherals.h
+ *
+ *  Created on: Aug 2, 2026
+ *      Author: vietht-hl
+ */
+
+#ifndef INC_PERIPHERALS_H_
+#define INC_PERIPHERALS_H_
+#include "stm32f4xx_hal.h"
+extern UART_HandleTypeDef husart2;
+extern UART_HandleTypeDef husart1;
+extern DMA_HandleTypeDef hdma2_usart1_rx;
+extern TIM_HandleTypeDef htim3;
+extern TIM_HandleTypeDef hal_tick_timer;
+
+
+#endif /* INC_PERIPHERALS_H_ */

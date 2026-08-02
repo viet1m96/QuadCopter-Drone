@@ -6,10 +6,7 @@
  */
 
 #include "stm32f4xx_hal.h"
-
-
-extern UART_HandleTypeDef husart1;
-extern DMA_HandleTypeDef hdma2_usart1_rx;
+#include "peripherals.h"
 
 
 void Error_Handler(void) {
@@ -23,4 +20,8 @@ void DMA2_Stream2_IRQHandler(void) {
 
 void USART1_IRQHandler(void) {
 	HAL_UART_IRQHandler(&husart1);
+}
+
+void TIM6_DAC_IRQHandler(void) {
+	HAL_TIM_IRQHandler(&hal_tick_timer);
 }

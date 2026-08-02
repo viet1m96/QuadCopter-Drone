@@ -8,8 +8,7 @@
 
 
 #include "stm32f4xx_hal.h"
-
-static TIM_HandleTypeDef hal_tick_timer;
+#include "peripherals.h"
 
 HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority) {
 	if(TickPriority >= (1 << __NVIC_PRIO_BITS)) {
@@ -60,15 +59,9 @@ void HAL_ResumeTick(void) {
 	__HAL_TIM_ENABLE_IT(&hal_tick_timer, TIM_IT_UPDATE);
 }
 
-void TIM6_DAC_IRQHandler(void) {
-	HAL_TIM_IRQHandler(&hal_tick_timer);
-}
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if(htim->Instance == TIM6) {
-		HAL_IncTick();
-	}
-}
+
+
 
 
 

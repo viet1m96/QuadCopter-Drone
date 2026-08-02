@@ -9,6 +9,8 @@
 #include "stdio.h"
 #include "main.h"
 
+#include "tasks_list.h"
+
 void SystemClockConfig(void)
 {
 	RCC_OscInitTypeDef osc_config = {0};
@@ -170,27 +172,19 @@ void TIM3_Init(void)
 }
 
 
-uint8_t IBUS_Setup(void)
+uint8_t IBUS_Setup(IBUS_Handle_t* ibus)
 {
-	IBUS_Status_t status = IBUS_Init(&ibus, &husart1);
+	IBUS_Status_t status = IBUS_Init(ibus, &husart1);
 
 	if(status != IBUS_OK) {
 		printf("IBUS_Init failed: %d\r\n", (int)status);
 		return 0U;
 	}
-
-	status = IBUS_Start(&ibus);
-
-	if(status != IBUS_OK) {
-		printf("IBUS_Start failed: %d\r\n", (int)status);
-		return 0U;
-	}
-
 	return 1U;
 }
 
 
-uint8_t RCInput_Setup(void)
+uint8_t RCInput_Setup(RCInput_Handle_t* rc_inp)
 {
 	RCInput_Config_t config = {0};
 
@@ -220,7 +214,7 @@ uint8_t RCInput_Setup(void)
 	config.yaw.deadband = COMMON_DEADBAND;
 	config.yaw.reversed = 0U;
 
-	RCInput_Status_t status = RCInput_Init(&rc_inp, &config);
+	RCInput_Status_t status = RCInput_Init(rc_inp, &config);
 
 	if(status != RC_INPUT_OK) {
 		printf("RCInput_Init failed: %d\r\n", (int)status);
@@ -231,7 +225,7 @@ uint8_t RCInput_Setup(void)
 }
 
 
-uint8_t MotorPWM_Setup(void)
+uint8_t MotorPWM_Setup(MotorPWM_Handle_t* motor_pwm)
 {
 	MotorPWM_Config_t config = {
 		.channels = {
@@ -244,7 +238,7 @@ uint8_t MotorPWM_Setup(void)
 	};
 
 	MotorPWM_Status_t status = MotorPWM_Init(
-										&motor_pwm,
+										motor_pwm,
 										&htim3,
 										&config);
 
@@ -253,12 +247,32 @@ uint8_t MotorPWM_Setup(void)
 		return 0U;
 	}
 
-	status = MotorPWM_Start(&motor_pwm, MIN_THROTTLE);
+	return 1U;
+}
 
-	if(status != MOTOR_PWM_OK) {
-		printf("MotorPWM_Start failed: %d\r\n", (int)status);
+
+uint8_t ReceiverTask_Setup(
+		IBUS_Handle_t* receiver_ibus,
+		RCInput_Handle_t* rc_inp,
+		QueueHandle_t* receiver_queue,
+		QueueHandle_t* process_queue) {
+	if(receiver_ibus == NULL || rc_inp == NULL) return 0U;
+	*receiver_queue = xQueueCreate(1U, sizeof(IBUS_Data_t));
+	if(receiver_queue == NULL) {
 		return 0U;
 	}
-
+	*process_queue = xQueueCreate(1U, sizeof(RCInput_Command_t));
+	if(process_queue == NULL) {
+		return 0U;
+	}
+	ReceiverTask_Context_t receiver_ctx = {
+			.receiver_ibus = receiver_ibus,
+			.rc_inp = rc_inp,
+			.receiver_queue = receiver_queue,
+			.process_queue = process_queue
+	};
+	if(ReceiverTask_Create(&receiver_ctx) != pdPASS) {
+		return 0U;
+	}
 	return 1U;
 }
