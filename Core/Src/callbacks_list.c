@@ -8,7 +8,7 @@
 #include "stm32f4xx_hal.h"
 #include "callbacks_list.h"
 
-static IBUS_Handle_t callback_ibus;
+static IBUS_Handle_t* callback_ibus;
 static QueueHandle_t callback_queue;
 
 
@@ -19,7 +19,7 @@ void CallBack_Init(
 		//TODO
 		return;
 	}
-	callback_ibus = *ibus;
+	callback_ibus = ibus;
 	callback_queue = *queue;
 }
 
@@ -39,7 +39,7 @@ void HAL_UARTEx_RxEventCallback(
     }
 
     IBUS_Status_t status = IBUS_OnRxEvent(
-        &callback_ibus,
+        callback_ibus,
         HAL_GetTick(),
         size
     );
@@ -57,7 +57,7 @@ void HAL_UARTEx_RxEventCallback(
     BaseType_t higher_priority_task_woken = pdFALSE;
     xQueueOverwriteFromISR(
         callback_queue,
-        &callback_ibus.latest_valid_data,
+        &callback_ibus->latest_valid_data,
         &higher_priority_task_woken
     );
     portYIELD_FROM_ISR(higher_priority_task_woken);

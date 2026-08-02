@@ -36,10 +36,16 @@ static void ReceiverTask(void *argument) {
 			}
 			xQueueOverwrite(ctx->process_queue, &command);
 		} else {
-			if(IBUS_Update(
-			                ctx->receiver_ibus,
-			                HAL_GetTick()
-			            	) != IBUS_OK ) {
+			uint32_t now_ms = HAL_GetTick();
+
+			taskENTER_CRITICAL();
+
+			IBUS_Status_t status = IBUS_Update(
+			        ctx->receiver_ibus,
+			        now_ms);
+
+			taskEXIT_CRITICAL();
+			if(status != IBUS_OK) {
 				//TODO
 			}
 		}

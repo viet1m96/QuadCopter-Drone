@@ -103,7 +103,7 @@ IBUS_Status_t IBUS_OnRxEvent(
         return IBUS_ERR_UNINITIALIZED;
     }
 
-    if (ibus->state == IBUS_LINK_STOPPED) {
+    if (ibus->state == IBUS_LINK_STOPPED || ibus->state == IBUS_LINK_LOST) {
         return IBUS_ERR_INVALID_STATE;
     }
 
