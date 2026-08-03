@@ -408,77 +408,7 @@ MPU6050_Status_t MPU6050_Init(
     return MPU6050_OK;
 }
 
-MPU6050_Status_t MPU6050_CheckDeviceID(
-        MPU6050_Handle_t *mpu)
-{
-    if (mpu == NULL) return MPU6050_ERR_NULL;
-    if (mpu->initialized == 0U) return MPU6050_ERR_UNINITIALIZED;
 
-    return mpu6050_check_device_id(mpu);
-}
-
-MPU6050_Status_t MPU6050_WakeUpChip(
-        MPU6050_Handle_t *mpu)
-{
-    if (mpu == NULL) return MPU6050_ERR_NULL;
-    if (mpu->initialized == 0U) return MPU6050_ERR_UNINITIALIZED;
-
-    return mpu6050_wake_up_chip(mpu);
-}
-
-MPU6050_Status_t MPU6050_SetClockSource(
-        MPU6050_Handle_t *mpu,
-        uint8_t clksrc)
-{
-    if (mpu == NULL) return MPU6050_ERR_NULL;
-    if (mpu->initialized == 0U) return MPU6050_ERR_UNINITIALIZED;
-
-    return mpu6050_set_clock_source(mpu, clksrc);
-}
-
-MPU6050_Status_t MPU6050_SetDLPF(
-        MPU6050_Handle_t *mpu,
-        uint8_t dlpf_config)
-{
-    if (mpu == NULL) return MPU6050_ERR_NULL;
-    if (mpu->initialized == 0U) return MPU6050_ERR_UNINITIALIZED;
-
-    return mpu6050_set_dlpf(mpu, dlpf_config);
-}
-
-MPU6050_Status_t MPU6050_SetGyroConfig(
-        MPU6050_Handle_t *mpu,
-        uint8_t fs_sel_config)
-{
-    if (mpu == NULL) return MPU6050_ERR_NULL;
-    if (mpu->initialized == 0U) return MPU6050_ERR_UNINITIALIZED;
-
-    return mpu6050_set_gyro_config(mpu, fs_sel_config);
-}
-
-MPU6050_Status_t MPU6050_SetAccelConfig(
-        MPU6050_Handle_t *mpu,
-        uint8_t accel_sel_config)
-{
-    if (mpu == NULL) return MPU6050_ERR_NULL;
-    if (mpu->initialized == 0U) return MPU6050_ERR_UNINITIALIZED;
-
-    return mpu6050_set_accel_config(
-            mpu,
-            accel_sel_config);
-}
-
-MPU6050_Status_t MPU6050_SetSampleRate(
-        MPU6050_Handle_t *mpu,
-        uint8_t sample_rate_div)
-{
-    if (mpu == NULL) return MPU6050_ERR_NULL;
-    if (mpu->initialized == 0U) return MPU6050_ERR_UNINITIALIZED;
-
-    return mpu6050_set_sample_rate(
-            mpu,
-            sample_rate_div);
-}
 
 MPU6050_Status_t MPU6050_ReadRawData(
         MPU6050_Handle_t *mpu, MPU6050_RawData_t *raw)
@@ -541,6 +471,7 @@ MPU6050_Status_t MPU6050_AbortReadIT(
         return MPU6050_INVALID_STATE;
     }
 
+
     mpu->read_it_state = MPU6050_READ_IT_ABORTING;
     mpu->read_it_result = MPU6050_I2C_TIMEOUT;
 
@@ -549,6 +480,7 @@ MPU6050_Status_t MPU6050_AbortReadIT(
             (uint16_t)(mpu->config.address << 1U));
 
     if (hal_status != HAL_OK) {
+
         mpu->read_it_state = MPU6050_READ_IT_BUSY;
         mpu->read_it_result = MPU6050_OK;
         return mpu6050_from_hal_status(hal_status);
@@ -567,11 +499,16 @@ MPU6050_Status_t MPU6050_OnI2CMemRxComplete(
     if (mpu->initialized == 0U) {
         return MPU6050_ERR_UNINITIALIZED;
     }
+    if (hi2c != mpu->hi2c) {
+        return MPU6050_INVALID_STATE;
+    }
 
-    if (hi2c != mpu->hi2c ||
-        (mpu->read_it_state != MPU6050_READ_IT_BUSY &&
-         mpu->read_it_state != MPU6050_READ_IT_ABORTING))
-    {
+    if (mpu->read_it_state == MPU6050_READ_IT_ABORTING) {
+
+        return MPU6050_OK;
+    }
+
+    if (mpu->read_it_state != MPU6050_READ_IT_BUSY) {
         return MPU6050_INVALID_STATE;
     }
 
@@ -590,18 +527,19 @@ MPU6050_Status_t MPU6050_OnI2CError(
     if (mpu->initialized == 0U) {
         return MPU6050_ERR_UNINITIALIZED;
     }
-
-    if (hi2c != mpu->hi2c ||
-        (mpu->read_it_state != MPU6050_READ_IT_BUSY &&
-         mpu->read_it_state != MPU6050_READ_IT_ABORTING))
-    {
+    if (hi2c != mpu->hi2c) {
         return MPU6050_INVALID_STATE;
     }
 
-    if (mpu->read_it_state == MPU6050_READ_IT_BUSY) {
-        mpu->read_it_result = MPU6050_I2C_ERROR;
+    if (mpu->read_it_state == MPU6050_READ_IT_ABORTING) {
+        return MPU6050_OK;
     }
 
+    if (mpu->read_it_state != MPU6050_READ_IT_BUSY) {
+        return MPU6050_INVALID_STATE;
+    }
+
+    mpu->read_it_result = MPU6050_I2C_ERROR;
     mpu->read_it_state = MPU6050_READ_IT_ERROR;
     return MPU6050_OK;
 }
@@ -623,6 +561,10 @@ MPU6050_Status_t MPU6050_OnI2CAbortComplete(
         return MPU6050_INVALID_STATE;
     }
 
+    /*
+     * CHANGED: Abort is now confirmed complete. Expose the original timeout
+     * through GetRawDataIT(), which also consumes ERROR and returns to IDLE.
+     */
     mpu->read_it_result = MPU6050_I2C_TIMEOUT;
     mpu->read_it_state = MPU6050_READ_IT_ERROR;
     return MPU6050_OK;

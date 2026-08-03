@@ -13,6 +13,7 @@ extern UART_HandleTypeDef husart1;
 extern DMA_HandleTypeDef hdma2_usart1_rx;
 extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef hal_tick_timer;
+extern I2C_HandleTypeDef hi2c1;
 
 
 #endif /* INC_PERIPHERALS_H_ */

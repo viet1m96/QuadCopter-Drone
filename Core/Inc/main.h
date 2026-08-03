@@ -19,9 +19,6 @@ extern "C" {
 #include "math.h"
 
 
-extern UART_HandleTypeDef husart2;
-extern I2C_HandleTypeDef hi2c1;
-
 #define I2C_CLOCK_SPEED_SM 100000
 #define I2C_CLOCK_SPEED_FM 400000
 #define TIM3_PRESCALER	   89U
@@ -37,9 +34,7 @@ extern I2C_HandleTypeDef hi2c1;
 
 
 void Error_Handler(void);
-void SystemClockConfig(void);
-void I2C1_Init(void);
-void USART2_UART_Init(void);
+
 
 #ifdef __cplusplus
 }

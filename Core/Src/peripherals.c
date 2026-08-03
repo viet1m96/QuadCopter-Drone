@@ -12,3 +12,4 @@ UART_HandleTypeDef husart1;
 DMA_HandleTypeDef hdma2_usart1_rx;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef hal_tick_timer;
+I2C_HandleTypeDef hi2c1;

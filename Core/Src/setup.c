@@ -83,7 +83,8 @@ void USART1_UART_Init(void)
 	husart1.Init.Mode = UART_MODE_RX;
 	husart1.Init.OverSampling = UART_OVERSAMPLING_16;
 	husart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-
+	HAL_NVIC_EnableIRQ(USART1_IRQn);
+	HAL_NVIC_SetPriority(USART1_IRQn, 6, 0);
 	if(HAL_UART_Init(&husart1) != HAL_OK) {
 		Error_Handler();
 	}
@@ -167,6 +168,23 @@ void TIM3_Init(void)
 			TIM_CHANNEL_4) != HAL_OK) {
 		Error_Handler();
 	}
+}
+
+void I2C1_Init() {
+	hi2c1.Instance = I2C1;
+	hi2c1.Init.ClockSpeed = I2C_CLOCK_SPEED_FM;
+	hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+	hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+	hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+	hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+	hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+	hi2c1.Init.OwnAddress1 = 0U;
+	hi2c1.Init.OwnAddress2 = 0U;
+	HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
+	HAL_NVIC_SetPriority(I2C1_EV_IRQn, 6U, 0U);
+
+	HAL_NVIC_EnableIRQ(I2C1_ER_IRQn);
+	HAL_NVIC_SetPriority(I2C1_ER_IRQn, 6U, 0U);
 }
 
 
@@ -272,4 +290,17 @@ uint8_t ReceiverTask_Setup(
 		return 0U;
 	}
 	return 1U;
+}
+
+
+void MPU6050_DRDY_GPIO_Init() {
+	GPIO_InitTypeDef gpiob_config;
+	gpiob_config.Pin = GPIO_PIN_12;
+	gpiob_config.Mode = GPIO_MODE_IT_RISING;
+	gpiob_config.Pull = GPIO_NOPULL;
+	gpiob_config.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+
+	HAL_GPIO_Init(GPIOB, &gpiob_config);
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6U, 0);
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }

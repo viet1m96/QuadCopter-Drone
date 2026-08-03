@@ -7,7 +7,7 @@
 
 
 #include "tasks_list.h"
-
+#include "stdio.h"
 
 static void ReceiverTask(void *argument) {
 	IBUS_Data_t frame;
@@ -30,6 +30,11 @@ static void ReceiverTask(void *argument) {
 												ctx->rc_inp,
 												&frame,
 												&command);
+			printf("Throttle: %f | Roll: %f | Pitch: %f | Yaw: %f \r\n",
+					command.throttle,
+					command.roll,
+					command.pitch,
+					command.yaw);
 			if(status != RC_INPUT_OK) {
 				//TODO
 				continue;

@@ -8,19 +8,18 @@
 #include "stm32f4xx_hal.h"
 #include "callbacks_list.h"
 
-static IBUS_Handle_t* callback_ibus;
-static QueueHandle_t callback_queue;
+static ReceiverTask_Context_t receiver_ctx;
 
 
-void CallBack_Init(
-		IBUS_Handle_t* ibus,
-		QueueHandle_t* queue) {
-	if(ibus == NULL || queue == NULL) {
+void Callbacks_Init(
+		ReceiverTask_Context_t rcv_ctx) {
+
+	if(rcv_ctx.receiver_ibus == NULL ||
+	   rcv_ctx.receiver_queue == NULL) {
 		//TODO
 		return;
 	}
-	callback_ibus = ibus;
-	callback_queue = *queue;
+	receiver_ctx = rcv_ctx;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
@@ -33,32 +32,37 @@ void HAL_UARTEx_RxEventCallback(
         UART_HandleTypeDef *huart,
         uint16_t size)
 {
-    if (huart->Instance != USART1)
+    if (huart->Instance == USART1)
     {
-        return;
+    	IBUS_Status_t status = IBUS_OnRxEvent(
+    		receiver_ctx.receiver_ibus,
+			HAL_GetTick(),
+			size
+		);
+		if (status != IBUS_OK)
+		{
+			return;
+		}
+
+
+		if (receiver_ctx.receiver_queue == NULL)
+		{
+			return;
+		}
+
+		BaseType_t higher_priority_task_woken = pdFALSE;
+		xQueueOverwriteFromISR(
+			receiver_ctx.receiver_queue,
+			&receiver_ctx.receiver_ibus->latest_valid_data,
+			&higher_priority_task_woken
+		);
+		portYIELD_FROM_ISR(higher_priority_task_woken);
     }
 
-    IBUS_Status_t status = IBUS_OnRxEvent(
-        callback_ibus,
-        HAL_GetTick(),
-        size
-    );
-    if (status != IBUS_OK)
-    {
-        return;
-    }
 
-
-    if (callback_queue == NULL)
-    {
-        return;
-    }
-
-    BaseType_t higher_priority_task_woken = pdFALSE;
-    xQueueOverwriteFromISR(
-        callback_queue,
-        &callback_ibus->latest_valid_data,
-        &higher_priority_task_woken
-    );
-    portYIELD_FROM_ISR(higher_priority_task_woken);
 }
+
+void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin) {
+
+}
+

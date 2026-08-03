@@ -152,7 +152,7 @@ typedef enum {
     MPU6050_READ_IT_BUSY,
     MPU6050_READ_IT_COMPLETE,
     MPU6050_READ_IT_ERROR,
-	MPU6050_READ_IT_ABORTING
+    MPU6050_READ_IT_ABORTING
 } MPU6050_ReadITState_t;
 
 typedef struct {
@@ -302,8 +302,10 @@ MPU6050_Status_t MPU6050_GetRawDataIT(
 
 MPU6050_ReadITState_t MPU6050_GetReadStateIT(
         const MPU6050_Handle_t *mpu);
+
 MPU6050_Status_t MPU6050_AbortReadIT(
         MPU6050_Handle_t *mpu);
+
 MPU6050_Status_t MPU6050_OnI2CAbortComplete(
         MPU6050_Handle_t *mpu,
         I2C_HandleTypeDef *hi2c);

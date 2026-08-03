@@ -11,9 +11,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "tasks_list.h"
 
-void CallBack_Init(
-		IBUS_Handle_t* ibus,
-		QueueHandle_t* queue);
+void Callbacks_Init(ReceiverTask_Context_t rcv_ctx);
 
 #endif /* INC_CALLBACKS_LIST_H_ */

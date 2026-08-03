@@ -1,7 +1,6 @@
 #include "stm32f4xx.h"
 
 #include "main.h"
-#include "msp.h"
 
 #include "motor_mixer.h"
 
@@ -13,6 +12,7 @@
 #include "task.h"
 #include "queue.h"
 #include "tasks_list.h"
+#include "callbacks_list.h"
 
 
 
@@ -50,7 +50,6 @@ int main(void)
 	}
 
 
-
 	if(ReceiverTask_Setup(
 			&receiver_ctx,
 			&ibus,
@@ -59,7 +58,7 @@ int main(void)
 			process_queue) != pdPASS) {
 		return 0;
 	}
-
+	Callbacks_Init(receiver_ctx);
 	vTaskStartScheduler();
 	for(;;) {
 
