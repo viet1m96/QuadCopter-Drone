@@ -609,16 +609,6 @@ MPU6050_Status_t MPU6050_GetRawDataIT(
     return MPU6050_OK;
 }
 
-MPU6050_ReadITState_t MPU6050_GetReadStateIT(
-        const MPU6050_Handle_t *mpu)
-{
-    if (mpu == NULL || mpu->initialized == 0U) {
-        return MPU6050_READ_IT_ERROR;
-    }
-
-    return mpu->read_it_state;
-}
-
 MPU6050_Status_t MPU6050_ReadRawAccel(
         MPU6050_Handle_t *mpu, MPU6050_RawData_t *raw)
 {

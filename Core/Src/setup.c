@@ -9,6 +9,7 @@
 #include "stdio.h"
 #include "main.h"
 
+
 void SystemClockConfig(void)
 {
 	RCC_OscInitTypeDef osc_config = {0};
@@ -180,6 +181,8 @@ void I2C1_Init() {
 	hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
 	hi2c1.Init.OwnAddress1 = 0U;
 	hi2c1.Init.OwnAddress2 = 0U;
+
+	HAL_I2C_Init(&hi2c1);
 	HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
 	HAL_NVIC_SetPriority(I2C1_EV_IRQn, 6U, 0U);
 
@@ -187,17 +190,21 @@ void I2C1_Init() {
 	HAL_NVIC_SetPriority(I2C1_ER_IRQn, 6U, 0U);
 }
 
-
-uint8_t IBUS_Setup(IBUS_Handle_t* ibus)
+uint8_t IBUS_Setup(
+        HAL_IBUS_Transport_t *transport)
 {
-	IBUS_Status_t status = IBUS_Init(ibus, &husart1);
+    if (transport == NULL) {
+        return 0U;
+    }
 
-	if(status != IBUS_OK) {
-		printf("IBUS_Init failed: %d\r\n", (int)status);
-		return 0U;
-	}
-	return 1U;
+    const HAL_IBUS_TransportStatus_t status =
+            HAL_IBUS_TransportInit(
+                    transport,
+                    &husart1);
+
+    return status == HAL_IBUS_TRANSPORT_OK;
 }
+
 
 
 uint8_t RCInput_Setup(RCInput_Handle_t* rc_inp)
@@ -266,34 +273,29 @@ uint8_t MotorPWM_Setup(MotorPWM_Handle_t* motor_pwm)
 	return 1U;
 }
 
-
 uint8_t ReceiverTask_Setup(
-		ReceiverTask_Context_t* receiver_ctx,
-		IBUS_Handle_t* receiver_ibus,
+		ReceiverTask_Context_t* ctx,
 		RCInput_Handle_t* rc_inp,
-		QueueHandle_t receiver_queue,
-		QueueHandle_t process_queue) {
-	if(receiver_ibus == NULL || rc_inp == NULL || receiver_ctx == NULL) return 0U;
-	receiver_queue = xQueueCreate(1U, sizeof(IBUS_Data_t));
-	if(receiver_queue == NULL) {
-		return 0U;
-	}
-	process_queue = xQueueCreate(1U, sizeof(RCInput_Command_t));
-	if(process_queue == NULL) {
-		return 0U;
-	}
-	receiver_ctx->receiver_ibus = receiver_ibus;
-	receiver_ctx->rc_inp = rc_inp;
-	receiver_ctx->receiver_queue = receiver_queue;
-	receiver_ctx->process_queue = process_queue;
-	if(ReceiverTask_Create(receiver_ctx) != pdPASS) {
-		return 0U;
-	}
+		QueueHandle_t raw_frame_queue,
+		QueueHandle_t command_queue,
+		HAL_IBUS_Transport_t* transport) {
+	if(ctx == NULL || transport == NULL || rc_inp == NULL) return 0U;
+	raw_frame_queue = xQueueCreate(1U, sizeof(IBUS_RawFrame_t));
+	if(raw_frame_queue == NULL) return 0U;
+	command_queue = xQueueCreate(1U, sizeof(RCInput_Command_t));
+	if(command_queue == NULL) return 0U;
+
+	ctx->transport = transport;
+	ctx->raw_frame_queue = raw_frame_queue;
+	ctx->command_queue = command_queue;
+	ctx->rc_input = rc_inp;
+	ctx->timeout_ticks = pdMS_TO_TICKS(IBUS_TIMEOUT_MS);
 	return 1U;
 }
 
 
 void MPU6050_DRDY_GPIO_Init() {
+	__HAL_RCC_GPIOB_CLK_ENABLE();
 	GPIO_InitTypeDef gpiob_config;
 	gpiob_config.Pin = GPIO_PIN_12;
 	gpiob_config.Mode = GPIO_MODE_IT_RISING;
@@ -304,3 +306,5 @@ void MPU6050_DRDY_GPIO_Init() {
 	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6U, 0);
 	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
+
+

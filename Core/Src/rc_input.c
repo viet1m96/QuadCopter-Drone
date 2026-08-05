@@ -8,13 +8,13 @@
 #include "rc_input.h"
 
 static uint8_t rc_input_validate_throttle(const RCInput_ThrottleConfig_t* config) {
-	if(config->channel_idx >= IBUS_CHANNEL_QUANTITY) return 0U;
+	if(config->channel_idx >= IBUS_CHANNEL_COUNT) return 0U;
 	if(config->min >= config->max) return 0U;
 	return 1U;
 }
 
 static uint8_t rc_input_validate_axis(const RCInput_AxisConfig_t* config) {
-	if(config->channel_idx >= IBUS_CHANNEL_QUANTITY) return 0U;
+	if(config->channel_idx >= IBUS_CHANNEL_COUNT) return 0U;
 	if (config->min >= config->center) {
 	    return 0U;
 	}
@@ -147,6 +147,7 @@ RCInput_Status_t RCInput_Convert(
 	command->yaw = rc_input_normalize_axis(
 											&rc->config.yaw,
 											data->channels[rc->config.yaw.channel_idx]);
-	command->timestamp_ms = data->timestamp_ms;
+
+	//TODO: have to add rc mode
 	return RC_INPUT_OK;
 }

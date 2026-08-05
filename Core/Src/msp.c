@@ -90,8 +90,8 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c) {
 		__HAL_RCC_GPIOB_CLK_ENABLE();
 		GPIO_InitTypeDef gpiob_config;
 		gpiob_config.Pin = GPIO_PIN_8 | GPIO_PIN_9;
-		gpiob_config.Mode = GPIO_MODE_AF_PP;
-		gpiob_config.Pull = GPIO_NOPULL;
+		gpiob_config.Mode = GPIO_MODE_AF_OD;
+		gpiob_config.Pull = GPIO_PULLUP;
 		gpiob_config.Speed = GPIO_SPEED_FREQ_HIGH;
 		gpiob_config.Alternate = GPIO_AF4_I2C1;
 

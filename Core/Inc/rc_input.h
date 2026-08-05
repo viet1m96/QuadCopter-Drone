@@ -19,6 +19,13 @@ typedef enum {
 	RC_INPUT_ERR_UNINITIALIZED
 } RCInput_Status_t;
 
+typedef enum {
+	RC_MODE_RATE = 0,
+	RC_MODE_ANGLE,
+	RC_MODE_ALTITUDE_HOLD,
+	RC_MODE_FAILSAFE
+} RCInput_Mode_t;
+
 typedef struct {
 	uint8_t channel_idx;
 	uint16_t min;
@@ -48,7 +55,7 @@ typedef struct {
 	float roll;
 	float pitch;
 	float yaw;
-
+	RCInput_Mode_t mode;
 	uint32_t timestamp_ms;
 } RCInput_Command_t;
 

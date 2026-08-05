@@ -7,6 +7,7 @@
 
 #ifndef INC_SETUP_H_
 #define INC_SETUP_H_
+#include <receiver_task.h>
 #include "stm32f4xx_hal.h"
 
 #include "ibus.h"
@@ -16,21 +17,24 @@
 #include "peripherals.h"
 #include "FreeRTOS.h"
 #include "queue.h"
-#include "tasks_list.h"
+#include "mpu6050.h"
+#include "hal_ibus_transport.h"
 
 void SystemClockConfig();
 void USART2_UART_Init();
 void USART1_UART_Init();
 void DMA_UART1_Init();
 void TIM3_Init();
-uint8_t IBUS_Setup(IBUS_Handle_t* ibus);
+uint8_t IBUS_Setup(HAL_IBUS_Transport_t* transport);
 uint8_t RCInput_Setup(RCInput_Handle_t* rc_inp);
 uint8_t MotorPWM_Setup(MotorPWM_Handle_t* motor_pwm);
 uint8_t ReceiverTask_Setup(
-		ReceiverTask_Context_t* receiver_ctx,
-		IBUS_Handle_t* receiver_ibus,
+		ReceiverTask_Context_t* ctx,
 		RCInput_Handle_t* rc_inp,
-		QueueHandle_t receiver_queue,
-		QueueHandle_t process_queue);
+		QueueHandle_t raw_frame_queue,
+		QueueHandle_t command_queue,
+		HAL_IBUS_Transport_t* transport);
+void I2C1_Init();
+void MPU6050_DRDY_GPIO_Init();
 
 #endif /* INC_SETUP_H_ */
