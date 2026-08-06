@@ -6,6 +6,8 @@
  */
 
 #include "rc_input.h"
+#include "control_common.h"
+
 
 static uint8_t rc_input_validate_throttle(const RCInput_ThrottleConfig_t* config) {
 	if(config->channel_idx >= IBUS_CHANNEL_COUNT) return 0U;
@@ -125,6 +127,10 @@ static float rc_input_normalize_axis(
 	return normalized;
 }
 
+static uint8_t rc_input_detect_failsafe(uint16_t raw) {
+	return (raw == FAILSAFE_THROTTLE) ? 1U : 0U;
+}
+
 RCInput_Status_t RCInput_Convert(
 		const RCInput_Handle_t* rc,
 		const IBUS_Data_t* data,
@@ -148,6 +154,6 @@ RCInput_Status_t RCInput_Convert(
 											&rc->config.yaw,
 											data->channels[rc->config.yaw.channel_idx]);
 
-	//TODO: have to add rc mode
+	command->failsafe_active = rc_input_detect_failsafe(data->channels[FAILSAFE_CHANNEL_IDX]);
 	return RC_INPUT_OK;
 }

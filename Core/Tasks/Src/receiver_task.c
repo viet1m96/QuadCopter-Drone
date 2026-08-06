@@ -12,6 +12,7 @@
 
 #define RECEIVER_START_RETRY_MS    100U
 
+
 static void receiver_make_failsafe_command(
 		RCInput_Command_t* command) {
 	if(command == NULL) return;
@@ -31,6 +32,33 @@ static void receiver_publish_command(
 	(void)xQueueOverwrite(ctx->command_queue, cmd);
 }
 
+static void receiver_start_transport(ReceiverTask_Context_t* context) {
+	if(context == NULL ||
+	   context->transport == NULL) {
+		return;
+	}
+
+	(void)HAL_IBUS_TransportStop(context->transport);
+	(void)xQueueReset(context->raw_frame_queue);
+	while (HAL_IBUS_TransportStart(context->transport) != HAL_IBUS_TRANSPORT_OK) {
+		vTaskDelay(
+				pdMS_TO_TICKS(
+						RECEIVER_START_RETRY_MS));
+	}
+
+}
+
+static void start_failsafe_protocol(
+		ReceiverTask_Context_t* context,
+		RCInput_Command_t* command,
+		TickType_t* last_sent_frame) {
+	printf("Sending failsafe...\r\n");
+	receiver_make_failsafe_command(command);
+	receiver_publish_command(context, command);
+	receiver_start_transport(context);
+	*last_sent_frame = xTaskGetTickCount();
+}
+
 
 static void ReceiverTask(void *argument) {
 
@@ -38,58 +66,65 @@ static void ReceiverTask(void *argument) {
 	IBUS_RawFrame_t raw;
 	IBUS_Data_t data;
 	RCInput_Command_t command;
-	receiver_make_failsafe_command(&command);
-	receiver_publish_command(context, &command);
-
-	while(HAL_IBUS_TransportStart(context->transport) != HAL_IBUS_TRANSPORT_OK) {
-		vTaskDelay(pdMS_TO_TICKS(RECEIVER_START_RETRY_MS));
-	}
-	TickType_t last_valid_frame_ticks = xTaskGetTickCount();
+	TickType_t last_sent_frame;
+	start_failsafe_protocol(context, &command, &last_sent_frame);
+	TickType_t wait_ticks;
+	TickType_t now;
+	TickType_t elapsed;
 	IBUS_Status_t decode_status;
 	for(;;) {
-		TickType_t wait_ticks;
-
-		if(command.mode == RC_MODE_FAILSAFE) {
-			wait_ticks = portMAX_DELAY;
+		wait_ticks = context->timeout_ticks;
+		now = xTaskGetTickCount();
+		elapsed = now - last_sent_frame;
+		if(elapsed >= context->timeout_ticks) {
+			start_failsafe_protocol(context, &command, &last_sent_frame);
 		} else {
-			const TickType_t now = xTaskGetTickCount();
-			const TickType_t elapsed = now - last_valid_frame_ticks;
-			if(elapsed >= context->timeout_ticks) {
-				wait_ticks = 0U;
-			} else {
-				wait_ticks = context->timeout_ticks - elapsed;
+			wait_ticks = context->timeout_ticks - elapsed;
+		}
+		uint32_t events = 0U;
+
+		const BaseType_t notified = xTaskNotifyWait(
+													0U,
+													RECEIVER_EVENT_FRAME_READY |
+													RECEIVER_EVENT_UART_ERROR,
+													&events,
+													wait_ticks);
+		if(notified != pdPASS) {
+			start_failsafe_protocol(context, &command, &last_sent_frame);
+			continue;
+		}
+		if((events & RECEIVER_EVENT_UART_ERROR) != 0U) {
+			start_failsafe_protocol(context, &command, &last_sent_frame);
+		}
+		if((events & RECEIVER_EVENT_FRAME_READY) != 0U) {
+			if(xQueueReceive(
+					context->raw_frame_queue,
+					&raw,
+					0U) == pdPASS) {
+				decode_status = IBUS_DecodeFrame(
+				            			raw.bytes,
+										IBUS_FRAME_SIZE,
+										&data);
+				if (decode_status != IBUS_OK) {
+					continue;
+				}
+				(void)RCInput_Convert(
+						context->rc_input,
+						&data,
+						&command);
+				receiver_publish_command(context, &command);
+				last_sent_frame = xTaskGetTickCount();
+//				printf("Throttle: %f | Roll: %f | Pitch: %f | Yaw: %f \r\n",
+//						command.throttle,
+//						command.roll,
+//						command.pitch,
+//						command.yaw);
 			}
 		}
 
-		const BaseType_t received = xQueueReceive(
-				context->raw_frame_queue,
-				&raw,
-				wait_ticks);
-		if(received != pdPASS) {
-			receiver_make_failsafe_command(&command);
-			receiver_publish_command(context, &command);
-			continue;
-		}
 
-		decode_status = IBUS_DecodeFrame(
-						raw.bytes,
-						IBUS_FRAME_SIZE,
-						&data);
-		if(decode_status != IBUS_OK) {
-			continue;
-		}
 
-		last_valid_frame_ticks = xTaskGetTickCount();
-		(void)RCInput_Convert(
-				context->rc_input,
-				&data,
-				&command);
-		printf("Throttle: %f | Roll: %f | Pitch: %f | Yaw:  %f \r\n",
-				command.throttle,
-				command.roll,
-				command.pitch,
-				command.yaw);
-		receiver_publish_command(context, &command);
+
 	}
 
 }
@@ -111,7 +146,7 @@ BaseType_t ReceiverTask_Create(ReceiverTask_Context_t* receiver_ctx) {
 				256U,
 				receiver_ctx,
 				3U,
-				NULL);
+				&receiver_ctx->task_handle);
 }
 
 

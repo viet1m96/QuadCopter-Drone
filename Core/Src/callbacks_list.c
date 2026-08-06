@@ -30,27 +30,56 @@ void HAL_UARTEx_RxEventCallback(
         UART_HandleTypeDef *huart,
         uint16_t size)
 {
-	printf("Here");
-    if(receiver_ctx == NULL ||
-       receiver_ctx->transport == NULL) {
-    	return;
-    }
-    if(huart == receiver_ctx->transport->huart) {
-    	IBUS_RawFrame_t frame;
-    	BaseType_t woken = pdFALSE;
+    if(receiver_ctx != NULL &&
+       receiver_ctx->transport != NULL &&
+	   receiver_ctx->transport->huart &&
+	   receiver_ctx->transport->huart == huart) {
+    	BaseType_t higher_priority_task_woken = pdFALSE;
+    	uint32_t events = 0U;
     	if(size == IBUS_FRAME_SIZE) {
+    		IBUS_RawFrame_t frame;
     		memcpy(frame.bytes,
-    				receiver_ctx->transport->rx_buffer,
-					IBUS_FRAME_SIZE);
-    		(void) HAL_IBUS_TransportStart(receiver_ctx->transport);
-    		(void) xQueueOverwriteFromISR(receiver_ctx->raw_frame_queue,
-    									  &frame,
-										  &woken);
-    	} else {
-    		HAL_IBUS_TransportStart(receiver_ctx->transport);
+    			   receiver_ctx->transport->rx_buffer,
+				   IBUS_FRAME_SIZE);
+    		(void)xQueueOverwriteFromISR(
+    									receiver_ctx->raw_frame_queue,
+										&frame,
+										&higher_priority_task_woken);
+    		events |= RECEIVER_EVENT_FRAME_READY;
     	}
-    	portYIELD_FROM_ISR(woken);
+    	if(HAL_IBUS_TransportStart(receiver_ctx->transport) != HAL_IBUS_TRANSPORT_OK) {
+    		events |= RECEIVER_EVENT_UART_ERROR;
+    	}
+    	if(events != 0U && receiver_ctx->task_handle != NULL) {
+    		(void)xTaskNotifyFromISR(
+    								receiver_ctx->task_handle,
+									events,
+									eSetBits,
+									&higher_priority_task_woken);
+    	}
+    	portYIELD_FROM_ISR(higher_priority_task_woken);
     }
+
+}
+
+void HAL_UART_ErrorCallback(
+        UART_HandleTypeDef *huart)
+{
+	if(receiver_ctx != NULL &&
+	   receiver_ctx->transport != NULL &&
+	   receiver_ctx->transport->huart &&
+	   receiver_ctx->transport->huart == huart) {
+	    BaseType_t higher_priority_task_woken = pdFALSE;
+		if (receiver_ctx->task_handle != NULL) {
+			(void)xTaskNotifyFromISR(
+					receiver_ctx->task_handle,
+					RECEIVER_EVENT_UART_ERROR,
+					eSetBits,
+					&higher_priority_task_woken);
+		}
+		portYIELD_FROM_ISR(higher_priority_task_woken);
+	}
+
 
 }
 

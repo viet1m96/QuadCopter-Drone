@@ -56,6 +56,7 @@ typedef struct {
 	float pitch;
 	float yaw;
 	RCInput_Mode_t mode;
+	uint8_t failsafe_active;
 	uint32_t timestamp_ms;
 } RCInput_Command_t;
 
