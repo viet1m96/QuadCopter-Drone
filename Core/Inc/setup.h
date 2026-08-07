@@ -36,5 +36,8 @@ uint8_t ReceiverTask_Setup(
 		HAL_IBUS_Transport_t* transport);
 void I2C1_Init();
 void MPU6050_DRDY_GPIO_Init();
+uint8_t MPU6050_Setup(
+		MPU6050_Handle_t* mpu,
+		DeviceIO_t* device_io);
 
 #endif /* INC_SETUP_H_ */

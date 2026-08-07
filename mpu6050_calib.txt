@@ -1,0 +1,259 @@
+static MPU6050_Status_t MPU6050_RunCalibration(
+        MPU6050_Handle_t *mpu)
+{
+    if (mpu == NULL) {
+        return MPU6050_ERR_NULL;
+    }
+
+    MPU6050_RawData_t raw;
+    MPU6050_StillnessConfig_t stillness;
+    MPU6050_Calibration_t calibration;
+
+    const Vector3f_t accel_reference_g = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .z = 1.0f
+    };
+
+    printf("\r\n");
+    printf("========================================\r\n");
+    printf("        MPU6050 CALIBRATION\r\n");
+    printf("========================================\r\n");
+    printf("Place the drone on a flat surface.\r\n");
+    printf("Keep it completely still.\r\n");
+    printf("Z axis must point upward.\r\n");
+    printf("\r\n");
+    printf("Calibration starts in 3 seconds...\r\n");
+
+    HAL_Delay(1000U);
+    printf("3...\r\n");
+
+    HAL_Delay(1000U);
+    printf("2...\r\n");
+
+    HAL_Delay(1000U);
+    printf("1...\r\n");
+
+    HAL_Delay(1000U);
+
+    MPU6050_Status_t status =
+            MPU6050_SetStillnessConfig(
+                    mpu,
+                    &stillness);
+
+    if (status != MPU6050_OK) {
+        printf("Failed to configure calibration: %d\r\n",
+                (int)status);
+
+        return status;
+    }
+
+    printf("\r\nCalibrating gyroscope...\r\n");
+
+    status =
+            MPU6050_CalibrateGyroOffset(
+                    mpu,
+                    &raw,
+                    &stillness);
+
+    if (status != MPU6050_OK) {
+        printf("Gyroscope calibration failed: %d\r\n",
+                (int)status);
+
+        return status;
+    }
+
+    printf("Gyroscope calibration complete.\r\n");
+
+    printf("\r\nCalibrating accelerometer...\r\n");
+
+    status =
+            MPU6050_CalibrateAccelOffset(
+                    mpu,
+                    &raw,
+                    &stillness,
+                    &accel_reference_g);
+
+    if (status != MPU6050_OK) {
+        printf("Accelerometer calibration failed: %d\r\n",
+                (int)status);
+
+        return status;
+    }
+
+    printf("Accelerometer calibration complete.\r\n");
+
+    status =
+            MPU6050_GetCalibration(
+                    mpu,
+                    &calibration);
+
+    if (status != MPU6050_OK) {
+        printf("Failed to get calibration data: %d\r\n",
+                (int)status);
+
+        return status;
+    }
+
+    printf("\r\n");
+    printf("========================================\r\n");
+    printf("       CALIBRATION COMPLETE\r\n");
+    printf("========================================\r\n");
+    printf("\r\n");
+
+    printf("#define MPU6050_ACCEL_OFFSET_X_G    %.8ff\r\n",
+            calibration.accel_offset_g.x);
+
+    printf("#define MPU6050_ACCEL_OFFSET_Y_G    %.8ff\r\n",
+            calibration.accel_offset_g.y);
+
+    printf("#define MPU6050_ACCEL_OFFSET_Z_G    %.8ff\r\n",
+            calibration.accel_offset_g.z);
+
+    printf("\r\n");
+
+    printf("#define MPU6050_GYRO_OFFSET_X_DPS   %.8ff\r\n",
+            calibration.gyro_offset_dps.x);
+
+    printf("#define MPU6050_GYRO_OFFSET_Y_DPS   %.8ff\r\n",
+            calibration.gyro_offset_dps.y);
+
+    printf("#define MPU6050_GYRO_OFFSET_Z_DPS   %.8ff\r\n",
+            calibration.gyro_offset_dps.z);
+
+    printf("\r\n");
+    printf("Copy the definitions above into your calibration header.\r\n");
+    printf("========================================\r\n");
+
+    return MPU6050_OK;
+}
+
+static MPU6050_Status_t MPU6050_PrintCalibratedData(
+        MPU6050_Handle_t *mpu,
+        uint32_t sample_count)
+{
+    if (mpu == NULL) {
+        return MPU6050_ERR_NULL;
+    }
+
+    Vector3f_t accel_sum = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .z = 0.0f
+    };
+
+    Vector3f_t gyro_sum = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .z = 0.0f
+    };
+
+    for (uint32_t i = 0U; i < sample_count; ++i) {
+        uint32_t start_tick = HAL_GetTick();
+
+        while (mpu_drdy_event == 0U) {
+            if ((HAL_GetTick() - start_tick) >= 100U) {
+                return MPU6050_ERR_TIMEOUT;
+            }
+        }
+
+        mpu_drdy_event = 0U;
+        mpu_rx_done_event = 0U;
+        mpu_error_event = 0U;
+
+        MPU6050_Status_t status =
+                MPU6050_StartReadRawDataIT(mpu);
+
+        if (status != MPU6050_OK) {
+            return status;
+        }
+
+        start_tick = HAL_GetTick();
+
+        while (mpu_rx_done_event == 0U
+                && mpu_error_event == 0U) {
+            if ((HAL_GetTick() - start_tick) >= 100U) {
+                return MPU6050_ERR_TIMEOUT;
+            }
+        }
+
+        if (mpu_error_event != 0U) {
+            return MPU6050_I2C_ERROR;
+        }
+
+        mpu_rx_done_event = 0U;
+
+        MPU6050_RawData_t raw;
+        MPU6050_Data_t physical;
+        MPU6050_Data_t calibrated;
+
+        status =
+                MPU6050_GetRawDataIT(
+                        mpu,
+                        &raw);
+
+        if (status != MPU6050_OK) {
+            return status;
+        }
+
+        status =
+                MPU6050_ConvertRawToPhysical(
+                        mpu,
+                        &raw,
+                        &physical);
+
+        if (status != MPU6050_OK) {
+            return status;
+        }
+
+        status =
+                MPU6050_ApplyCalibration(
+                        mpu,
+                        &physical,
+                        &calibrated);
+
+        if (status != MPU6050_OK) {
+            return status;
+        }
+
+        accel_sum.x += calibrated.accel_g.x;
+        accel_sum.y += calibrated.accel_g.y;
+        accel_sum.z += calibrated.accel_g.z;
+
+        gyro_sum.x += calibrated.gyro_dps.x;
+        gyro_sum.y += calibrated.gyro_dps.y;
+        gyro_sum.z += calibrated.gyro_dps.z;
+
+        printf(
+                "%lu | "
+                "ACC: %+.5f %+.5f %+.5f g | "
+                "GYRO: %+.5f %+.5f %+.5f dps | "
+                "TEMP: %.2f C\r\n",
+                (unsigned long)(i + 1U),
+                calibrated.accel_g.x,
+                calibrated.accel_g.y,
+                calibrated.accel_g.z,
+                calibrated.gyro_dps.x,
+                calibrated.gyro_dps.y,
+                calibrated.gyro_dps.z,
+                calibrated.temp_c);
+    }
+
+    float count = (float)sample_count;
+
+    printf("\r\nAverage after calibration:\r\n");
+
+    printf(
+            "ACC  X=%+.6f Y=%+.6f Z=%+.6f g\r\n",
+            accel_sum.x / count,
+            accel_sum.y / count,
+            accel_sum.z / count);
+
+    printf(
+            "GYRO X=%+.6f Y=%+.6f Z=%+.6f dps\r\n",
+            gyro_sum.x / count,
+            gyro_sum.y / count,
+            gyro_sum.z / count);
+
+    return MPU6050_OK;
+}

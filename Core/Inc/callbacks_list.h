@@ -8,11 +8,14 @@
 #ifndef INC_CALLBACKS_LIST_H_
 #define INC_CALLBACKS_LIST_H_
 #include "receiver_task.h"
+#include "sensor_task.h"
 #include "ibus.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 
-void Callbacks_Init(ReceiverTask_Context_t* rcv_ctx);
+void Callbacks_Init(
+		ReceiverTask_Context_t* rcv_ctx,
+		SensorTask_Context_t* sen_ctx);
 
 #endif /* INC_CALLBACKS_LIST_H_ */

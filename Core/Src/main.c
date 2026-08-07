@@ -14,16 +14,20 @@
 #include "queue.h"
 #include "callbacks_list.h"
 #include "mpu6050.h"
-
+#include "device_IO.h"
 
 
 
 static RCInput_Handle_t rc_inp;
-static MotorPWM_Handle_t motor_pwm;
 static HAL_IBUS_Transport_t ibus_transport;
+static DeviceIO_t device_io;
+static MPU6050_Handle_t mpu;
 static QueueHandle_t raw_ibus_queue;
 static QueueHandle_t command_queue;
 static ReceiverTask_Context_t receiver_ctx;
+
+
+
 
 
 
@@ -34,6 +38,7 @@ int main(void)
 	SystemClockConfig();
 
 	USART2_UART_Init();
+
 	USART1_UART_Init();
 	DMA_UART1_Init();
 	TIM3_Init();
@@ -44,14 +49,15 @@ int main(void)
 		return 0;
 	}
 
-//	if(!MotorPWM_Setup(&motor_pwm)) {
-//		return 0;
-//	}
-
 	if(!IBUS_Setup(&ibus_transport)) {
 		return 0;
 	}
 
+
+
+	if(!MPU6050_Setup(&mpu, &device_io)) {
+		return 0;
+	}
 	if(!ReceiverTask_Setup(
 			&receiver_ctx,
 			&rc_inp,
@@ -60,10 +66,10 @@ int main(void)
 			&ibus_transport)) {
 		return 0;
 	}
-	Callbacks_Init(&receiver_ctx);
-	if(ReceiverTask_Create(&receiver_ctx) != pdPASS) {
-		return 0;
-	}
+//	Callbacks_Init(&receiver_ctx);
+//	if(ReceiverTask_Create(&receiver_ctx) != pdPASS) {
+//		return 0;
+//	}
 	vTaskStartScheduler();
 	for(;;) {
 
