@@ -22,8 +22,7 @@ typedef enum {
 typedef enum {
 	RC_MODE_RATE = 0,
 	RC_MODE_ANGLE,
-	RC_MODE_ALTITUDE_HOLD,
-	RC_MODE_FAILSAFE
+	RC_MODE_ALTITUDE_HOLD
 } RCInput_Mode_t;
 
 typedef struct {

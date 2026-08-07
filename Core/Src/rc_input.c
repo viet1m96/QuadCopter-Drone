@@ -131,6 +131,13 @@ static uint8_t rc_input_detect_failsafe(uint16_t raw) {
 	return (raw == FAILSAFE_THROTTLE) ? 1U : 0U;
 }
 
+static RCInput_Mode_t rc_input_detect_mode(uint16_t raw) {
+	if(raw == FLIGHT_MODE_RATE) return RC_MODE_RATE;
+	if(raw == FLIGHT_MODE_ANGLE) return RC_MODE_ANGLE;
+	if(raw == FLIGHT_MODE_ALTITUDE_HOLD) return RC_MODE_ALTITUDE_HOLD;
+	return 0;
+}
+
 RCInput_Status_t RCInput_Convert(
 		const RCInput_Handle_t* rc,
 		const IBUS_Data_t* data,
@@ -155,5 +162,6 @@ RCInput_Status_t RCInput_Convert(
 											data->channels[rc->config.yaw.channel_idx]);
 
 	command->failsafe_active = rc_input_detect_failsafe(data->channels[FAILSAFE_CHANNEL_IDX]);
+	command->mode = rc_input_detect_mode(data->channels[FLIGHT_MODE_CHANNEL_IDX]);
 	return RC_INPUT_OK;
 }
