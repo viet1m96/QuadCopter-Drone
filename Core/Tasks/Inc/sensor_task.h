@@ -1,49 +1,56 @@
-/*
- * sensor_task.h
- *
- *  Created on: Aug 7, 2026
- *      Author: vietht-hl
- */
-
 #ifndef TASKS_INC_SENSOR_TASK_H_
 #define TASKS_INC_SENSOR_TASK_H_
+
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
 #include "mpu6050.h"
 
-#define SENSOR_BUS_I2C1_FRAME_READY (1UL << 0)
-#define SENSOR_BUS_I2C1_ERROR  (1UL << 1)
+#define SENSOR_EVENT_I2C1_RX_DONE       (1UL << 0)
+#define SENSOR_EVENT_I2C1_ERROR         (1UL << 1)
+#define SENSOR_EVENT_I2C1_ABORT_DONE    (1UL << 2)
+#define SENSOR_EVENT_MPU6050_DRDY       (1UL << 3)
 
 typedef enum {
-	I2C1_STATE_IDLE = 0,
-	I2C1_STATE_BUSY,
-	I2C1_STATE_ABORTING
-} I2C1_State_t;
-
+    SENSOR_BUS_IDLE = 0,
+    SENSOR_BUS_BUSY,
+    SENSOR_BUS_ABORTING
+} SensorBusState_t;
 
 typedef enum {
-	MPU6050 = 0
-} I2C1_Owner_t;
+    SENSOR_OWNER_NONE = 0,
+    SENSOR_OWNER_MPU6050
+} SensorOwner_t;
 
 typedef struct {
-	I2C1_Owner_t owner;
-	DeviceIO_t* device_io;
-
-	TickType_t state_started_tick;
-	TickType_t transaction_timeout_ticks;
-	TickType_t abort_timeout_ticks;
-} I2C1_BusManager_t;
+    uint8_t pending;
+    TickType_t deadline_tick;
+    TickType_t max_latency_ticks;
+} SensorRequest_t;
 
 typedef struct {
-	MPU6050_Handle_t* imu;
-	uint8_t imu_pending;
+    SensorBusState_t state;
+    SensorOwner_t owner;
 
-	I2C1_BusManager_t i2c1_manager;
-	QueueHandle_t data_queue_from_callback;
-	QueueHandle_t data_queue_to_control;
+    DeviceIO_t *device_io;
+    uint8_t active_device_address;
+
+    TickType_t state_started_tick;
+    TickType_t transaction_timeout_ticks;
+    TickType_t abort_timeout_ticks;
+} SensorBusManager_t;
+
+typedef struct {
+    MPU6050_Handle_t *imu;
+    SensorRequest_t imu_request;
+
+    SensorBusManager_t i2c1_manager;
+
+    QueueHandle_t data_queue_to_control;
+    TaskHandle_t task_handle;
 } SensorTask_Context_t;
 
-BaseType_t SensorTask_Create(SensorTask_Context_t* sensor_ctx);
+BaseType_t SensorTask_Create(
+        SensorTask_Context_t *sensor_ctx);
 
-#endif /* TASKS_INC_SENSOR_TASK_H_ */
+#endif

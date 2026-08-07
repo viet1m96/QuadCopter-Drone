@@ -28,10 +28,6 @@ extern "C" {
 
 
 
-#define MPU6050_ADDRESS 0x68U
-#define BMP180_ADDRESS 0x77U
-#define HMC5883L_ADDRESS 0x1EU
-
 
 void Error_Handler(void);
 

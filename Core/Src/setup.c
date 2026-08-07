@@ -11,9 +11,6 @@
 #include "device_IO.h"
 #include "hal_i2c_transport.h"
 
-extern volatile uint8_t mpu_drdy_event ;
-extern volatile uint8_t mpu_rx_done_event ;
-extern volatile uint8_t mpu_error_event;
 
 void SystemClockConfig(void)
 {
@@ -460,7 +457,7 @@ uint8_t MPU6050_Setup(
 	        mpu);
 
 	if (status != MPU6050_OK) {
-	    return 1U;
+	    return 0U;
 	}
 	if(MPU6050_ConfigureInterrupt(mpu, &mpu_interrupt_config)) return 0U;
 	if(MPU6050_SetDataReadyInterrupt(mpu, 1U) != MPU6050_OK) return 0U;
@@ -481,4 +478,18 @@ void MPU6050_DRDY_GPIO_Init() {
 	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
+
+uint8_t SensorTask_Setup(
+		SensorTask_Context_t* sensor_ctx,
+		MPU6050_Handle_t* mpu,
+		QueueHandle_t data_queue_to_control) {
+	if(sensor_ctx == NULL || mpu == NULL) return 0U;
+	data_queue_to_control = xQueueCreate(1U, sizeof(MPU6050_Data_t));
+	if(data_queue_to_control == NULL) return 0U;
+	sensor_ctx->data_queue_to_control = data_queue_to_control;
+	sensor_ctx->imu = mpu;
+	BaseType_t status = SensorTask_Create(sensor_ctx);
+	if(status != pdPASS) return 0U;
+	return 1U;
+}
 

@@ -19,6 +19,7 @@
 #include "queue.h"
 #include "mpu6050.h"
 #include "hal_ibus_transport.h"
+#include "sensor_task.h"
 
 void SystemClockConfig();
 void USART2_UART_Init();
@@ -39,5 +40,9 @@ void MPU6050_DRDY_GPIO_Init();
 uint8_t MPU6050_Setup(
 		MPU6050_Handle_t* mpu,
 		DeviceIO_t* device_io);
+uint8_t SensorTask_Setup(
+		SensorTask_Context_t* sensor_ctx,
+		MPU6050_Handle_t* mpu,
+		QueueHandle_t data_queue_to_control);
 
 #endif /* INC_SETUP_H_ */

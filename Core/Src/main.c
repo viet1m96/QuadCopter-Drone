@@ -1,4 +1,5 @@
-#include <receiver_task.h>
+#include "receiver_task.h"
+#include "sensor_task.h"
 #include "stm32f4xx.h"
 
 #include "main.h"
@@ -24,7 +25,9 @@ static DeviceIO_t device_io;
 static MPU6050_Handle_t mpu;
 static QueueHandle_t raw_ibus_queue;
 static QueueHandle_t command_queue;
+static QueueHandle_t sensor_data_queue;
 static ReceiverTask_Context_t receiver_ctx;
+static SensorTask_Context_t sensor_ctx;
 
 
 
@@ -66,10 +69,10 @@ int main(void)
 			&ibus_transport)) {
 		return 0;
 	}
-//	Callbacks_Init(&receiver_ctx);
-//	if(ReceiverTask_Create(&receiver_ctx) != pdPASS) {
-//		return 0;
-//	}
+	if(!SensorTask_Setup(&sensor_ctx, &mpu, sensor_data_queue)) {
+		return 0;
+	}
+	Callbacks_Init(&receiver_ctx, &sensor_ctx);
 	vTaskStartScheduler();
 	for(;;) {
 
