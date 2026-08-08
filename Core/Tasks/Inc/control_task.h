@@ -1,10 +1,3 @@
-/*
- * control_task.h
- *
- *  Created on: Aug 8, 2026
- *      Author: vietht-hl
- */
-
 #ifndef TASKS_INC_CONTROL_TASK_H_
 #define TASKS_INC_CONTROL_TASK_H_
 
@@ -23,6 +16,11 @@ typedef enum {
 } FlightState_t;
 
 typedef struct {
+  float roll;
+  float pitch;
+} Angle_t;
+
+typedef struct {
   FlightState_t flight_state;
 
   PID_Handle_t rate_pid_roll;
@@ -37,9 +35,11 @@ typedef struct {
 
   ESC_Handle_t esc;
 
+  Angle_t cur_angle;
+
   TickType_t command_timeout_ticks;
 } ControlTask_Context_t;
 
 BaseType_t ControlTask_Create(ControlTask_Context_t *control_ctx);
 
-#endif /* TASKS_INC_CONTROL_TASK_H_ */
+#endif
