@@ -17,20 +17,22 @@
 #define THROTTLE_CHANNEL_IDX 2U
 #define ROLL_CHANNEL_IDX 0U
 #define PITCH_CHANNEL_IDX 1U
-#define YAW_CHANNEL_IDX   3U
+#define YAW_CHANNEL_IDX 3U
 #define FAILSAFE_CHANNEL_IDX 5U
 #define FLIGHT_MODE_CHANNEL_IDX 4U
+#define ARM_REQUEST_CHANNEL_IDX 6U
 
-#define FLIGHT_MODE_RATE 1000U
-#define FLIGHT_MODE_ANGLE 1500U
-#define FLIGHT_MODE_ALTITUDE_HOLD 2000U //TODO: reserved
+#define FLIGHT_MODE_RATE MIN_THROTTLE
+#define FLIGHT_MODE_ANGLE CENTER_THROTTLE
+#define FLIGHT_MODE_ALTITUDE_HOLD MAX_THROTTLE // TODO: reserved
 
+#define ARM_REQUESTED MAX_THROTTLE
+#define DISARMED_REQUESTED MIN_THROTTLE
 
 typedef struct {
-	float roll;
-	float pitch;
-	float yaw;
+  float roll;
+  float pitch;
+  float yaw;
 } AxisCorrection_t;
-
 
 #endif /* INC_CONTROL_COMMON_H_ */
