@@ -64,6 +64,7 @@ static uint8_t receiver_start_next_frame(ReceiverTask_Context_t *context) {
 }
 
 static void ReceiverTask(void *argument) {
+
   ReceiverTask_Context_t *context = (ReceiverTask_Context_t *)argument;
 
   IBUS_RawFrame_t raw;
@@ -75,6 +76,7 @@ static void ReceiverTask(void *argument) {
   start_failsafe_protocol(context, &command, &last_sent_frame);
 
   for (;;) {
+
     TickType_t now = xTaskGetTickCount();
 
     TickType_t elapsed = now - last_sent_frame;
@@ -118,6 +120,8 @@ static void ReceiverTask(void *argument) {
       if (decode_status == IBUS_OK) {
         (void)RCInput_Convert(context->rc_input, &data, &command);
         command.timestamp_tick = xTaskGetTickCount();
+        printf("Throttle: %f | Roll: %f | Pitch: %f | Yaw: %f\r\n", command.throttle, command.roll, command.pitch, command.yaw);
+        printf("%d \r\n", command.failsafe_active);
         receiver_publish_command(context, &command);
 
         last_sent_frame = xTaskGetTickCount();

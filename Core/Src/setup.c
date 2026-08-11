@@ -216,7 +216,7 @@ uint8_t RCInput_Setup(RCInput_Handle_t *rc_inp) {
 
 uint8_t MotorPWM_Setup(MotorPWM_Handle_t *motor_pwm) {
   MotorPWM_Config_t config = {
-      .channels = {TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3, TIM_CHANNEL_4},
+      .channels = {TIM_CHANNEL_4, TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3},
       .frame_period_us = (uint16_t)(htim3.Init.Period + 1U)};
 
   MotorPWM_Status_t status = MotorPWM_Init(motor_pwm, &htim3, &config);
@@ -244,6 +244,10 @@ uint8_t ReceiverTask_Setup(ReceiverTask_Context_t *ctx,
   ctx->transport = transport;
   ctx->rc_input = rc_inp;
   ctx->timeout_ticks = pdMS_TO_TICKS(IBUS_TIMEOUT_MS);
+
+  BaseType_t status = ReceiverTask_Create(ctx);
+    if (status != pdPASS)
+      return 0U;
   return 1U;
 }
 
@@ -355,6 +359,7 @@ static MPU6050_Status_t MPU6050_RunCalibration(MPU6050_Handle_t *mpu) {
   return MPU6050_OK;
 }
 
+
 uint8_t MPU6050_Setup(MPU6050_Handle_t *mpu, DeviceIO_t *device_io) {
   const MPU6050_Config_t mpu_config = {
       .address = MPU6050_I2C_ADDRESS_AD0_LOW,
@@ -369,12 +374,13 @@ uint8_t MPU6050_Setup(MPU6050_Handle_t *mpu, DeviceIO_t *device_io) {
 
   if (HAL_I2C_DeviceIO_Init(&hi2c1, device_io) != DEVICE_IO_OK)
     return 0U;
-  if (MPU6050_Init(mpu, device_io, &mpu_config) != MPU6050_OK)
-    return 0U;
-  MPU6050_Status_t status = MPU6050_RunCalibration(mpu);
 
-  if (status != MPU6050_OK) {
-    return 0U;
+  if (MPU6050_Init(mpu, device_io, &mpu_config) != MPU6050_OK) {
+	  return 0U;
+  }
+
+  if(MPU6050_RunCalibration(mpu) != MPU6050_OK) {
+	  return 0U;
   }
   if (MPU6050_ConfigureInterrupt(mpu, &mpu_interrupt_config))
     return 0U;

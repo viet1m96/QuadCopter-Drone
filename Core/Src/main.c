@@ -28,7 +28,6 @@ int main(void) {
   SystemClockConfig();
 
   USART2_UART_Init();
-
   USART1_UART_Init();
   DMA_UART1_Init();
   TIM3_Init();
@@ -36,22 +35,27 @@ int main(void) {
   MPU6050_DRDY_GPIO_Init();
 
   if (!RCInput_Setup(&rc_inp)) {
+
     return 0;
   }
 
   if (!IBUS_Setup(&ibus_transport)) {
+
     return 0;
   }
 
   if (!MPU6050_Setup(&mpu, &device_io)) {
+
     return 0;
   }
   if (!ReceiverTask_Setup(&receiver_ctx, &rc_inp, &ibus_transport)) {
+
     return 0;
   }
   if (!SensorTask_Setup(&sensor_ctx, &mpu)) {
     return 0;
   }
+
   Callbacks_Init(&receiver_ctx, &sensor_ctx);
   vTaskStartScheduler();
   for (;;) {

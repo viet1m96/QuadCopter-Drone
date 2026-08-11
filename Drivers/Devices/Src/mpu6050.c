@@ -1,7 +1,6 @@
 #include "mpu6050.h"
 
 #include <limits.h>
-#include <math.h>
 #include <stddef.h>
 
 #include "byte_utils.h"
@@ -339,7 +338,6 @@ mpu6050_collect_still_samples(MPU6050_Handle_t *mpu, MPU6050_RawData_t *raw,
   float accel_sum_z = 0.0f;
 
   for (uint32_t i = 0U; i < config->sample_count; ++i) {
-
     MPU6050_Status_t status = MPU6050_ReadRawData(mpu, raw);
 
     if (status != MPU6050_OK) {
@@ -407,15 +405,21 @@ mpu6050_collect_still_samples(MPU6050_Handle_t *mpu, MPU6050_RawData_t *raw,
     }
   }
 
-  if ((float)(gyro_max.x - gyro_min.x) > config->gyro_threshold ||
-      (float)(gyro_max.y - gyro_min.y) > config->gyro_threshold ||
-      (float)(gyro_max.z - gyro_min.z) > config->gyro_threshold) {
+  if ((float)((int32_t)gyro_max.x - (int32_t)gyro_min.x) >
+          config->gyro_threshold ||
+      (float)((int32_t)gyro_max.y - (int32_t)gyro_min.y) >
+          config->gyro_threshold ||
+      (float)((int32_t)gyro_max.z - (int32_t)gyro_min.z) >
+          config->gyro_threshold) {
     return MPU6050_ERR_MOVING;
   }
 
-  if ((float)(accel_max.x - accel_min.x) > config->accel_axis_threshold ||
-      (float)(accel_max.y - accel_min.y) > config->accel_axis_threshold ||
-      (float)(accel_max.z - accel_min.z) > config->accel_axis_threshold) {
+  if ((float)((int32_t)accel_max.x - (int32_t)accel_min.x) >
+          config->accel_axis_threshold ||
+      (float)((int32_t)accel_max.y - (int32_t)accel_min.y) >
+          config->accel_axis_threshold ||
+      (float)((int32_t)accel_max.z - (int32_t)accel_min.z) >
+          config->accel_axis_threshold) {
     return MPU6050_ERR_MOVING;
   }
 
@@ -432,15 +436,6 @@ mpu6050_collect_still_samples(MPU6050_Handle_t *mpu, MPU6050_RawData_t *raw,
   average->accel_y = accel_sum_y / count;
 
   average->accel_z = accel_sum_z / count;
-
-  float accel_magnitude = sqrtf(average->accel_x * average->accel_x +
-                                average->accel_y * average->accel_y +
-                                average->accel_z * average->accel_z);
-
-  if (fabsf(accel_magnitude - config->accel_threshold) >
-      config->accel_allowed_gap) {
-    return MPU6050_ERR_MOVING;
-  }
 
   return MPU6050_OK;
 }
@@ -473,9 +468,15 @@ MPU6050_Status_t MPU6050_Init(MPU6050_Handle_t *mpu, const DeviceIO_t *io,
 
   mpu->temp_offset = MPU6050_TEMP_OFFSET;
 
-  mpu->accel_offset_g = (Vector3f_t){.x = 0.0f, .y = 0.0f, .z = 0.0f};
+  mpu->accel_offset_g = (Vector3f_t){
+	  .x = MPU6050_ACCEL_OFFSET_X_G,
+	  .y = MPU6050_ACCEL_OFFSET_Y_G,
+	  .z = MPU6050_ACCEL_OFFSET_Z_G};
 
-  mpu->gyro_offset_dps = (Vector3f_t){.x = 0.0f, .y = 0.0f, .z = 0.0f};
+  mpu->gyro_offset_dps = (Vector3f_t){
+	  .x = MPU6050_GYRO_OFFSET_X_DPS,
+	  .y = MPU6050_GYRO_OFFSET_Y_DPS,
+	  .z = MPU6050_GYRO_OFFSET_Z_DPS};
 
   uint8_t who_am_i = 0U;
 
@@ -806,7 +807,8 @@ MPU6050_SetStillnessConfig(const MPU6050_Handle_t *mpu,
 
   stillness->accel_threshold = MPU6050_ACCEL_MAGNITUDE_G * mpu->accel_scale;
 
-  stillness->accel_allowed_gap = MPU6050_ACCEL_MAGNITUDE_GAP * mpu->accel_scale;
+  stillness->accel_allowed_gap =
+      MPU6050_ACCEL_MAGNITUDE_GAP * mpu->accel_scale;
 
   return MPU6050_OK;
 }
@@ -827,12 +829,10 @@ MPU6050_CalibrateGyroOffset(MPU6050_Handle_t *mpu, MPU6050_RawData_t *raw,
   uint32_t start_time = mpu->io->ops->get_tick_ms(mpu->io->context);
 
   for (;;) {
-
     MPU6050_Status_t status =
         mpu6050_collect_still_samples(mpu, raw, stillness, &average);
 
     if (status == MPU6050_OK) {
-
       mpu->gyro_offset_dps.x = average.gyro_x / mpu->gyro_scale;
 
       mpu->gyro_offset_dps.y = average.gyro_y / mpu->gyro_scale;
@@ -872,12 +872,10 @@ MPU6050_CalibrateAccelOffset(MPU6050_Handle_t *mpu, MPU6050_RawData_t *raw,
   uint32_t start_time = mpu->io->ops->get_tick_ms(mpu->io->context);
 
   for (;;) {
-
     MPU6050_Status_t status =
         mpu6050_collect_still_samples(mpu, raw, stillness, &average);
 
     if (status == MPU6050_OK) {
-
       mpu->accel_offset_g.x =
           (average.accel_x / mpu->accel_scale) - accel_reference_g->x;
 

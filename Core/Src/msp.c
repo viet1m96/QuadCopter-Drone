@@ -64,13 +64,23 @@ void HAL_TIM_OC_MspInit(TIM_HandleTypeDef *tim) {
     __HAL_RCC_TIM3_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     GPIO_InitTypeDef gpiob_config;
-    gpiob_config.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_4 | GPIO_PIN_5;
+    gpiob_config.Pin = GPIO_PIN_0;
     gpiob_config.Mode = GPIO_MODE_AF_PP;
     gpiob_config.Pull = GPIO_NOPULL;
     gpiob_config.Speed = GPIO_SPEED_FREQ_HIGH;
     gpiob_config.Alternate = GPIO_AF2_TIM3;
 
     HAL_GPIO_Init(GPIOB, &gpiob_config);
+
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    GPIO_InitTypeDef gpioc_config;
+    gpioc_config.Pin = GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_9;
+    gpioc_config.Mode = GPIO_MODE_AF_PP;
+    gpioc_config.Pull = GPIO_NOPULL;
+	gpioc_config.Speed = GPIO_SPEED_FREQ_HIGH;
+	gpioc_config.Alternate = GPIO_AF2_TIM3;
+
+	HAL_GPIO_Init(GPIOC, &gpioc_config);
   }
 }
 
