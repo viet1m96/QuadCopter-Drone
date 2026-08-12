@@ -207,7 +207,6 @@ uint8_t RCInput_Setup(RCInput_Handle_t *rc_inp) {
   RCInput_Status_t status = RCInput_Init(rc_inp, &config);
 
   if (status != RC_INPUT_OK) {
-    printf("RCInput_Init failed: %d\r\n", (int)status);
     return 0U;
   }
 
@@ -222,7 +221,6 @@ uint8_t MotorPWM_Setup(MotorPWM_Handle_t *motor_pwm) {
   MotorPWM_Status_t status = MotorPWM_Init(motor_pwm, &htim3, &config);
 
   if (status != MOTOR_PWM_OK) {
-    printf("MotorPWM_Init failed: %d\r\n", (int)status);
     return 0U;
   }
 
@@ -372,8 +370,10 @@ uint8_t MPU6050_Setup(MPU6050_Handle_t *mpu, DeviceIO_t *device_io) {
   const MPU6050_InterruptConfig_t mpu_interrupt_config = {
       .int_level = 0U, .int_open = 0U, .latch_int_en = 0U, .int_rd_clear = 0U};
 
-  if (HAL_I2C_DeviceIO_Init(&hi2c1, device_io) != DEVICE_IO_OK)
-    return 0U;
+  if (HAL_I2C_DeviceIO_Init(&hi2c1, device_io) != DEVICE_IO_OK) {
+	  return 0U;
+  }
+
 
   if (MPU6050_Init(mpu, device_io, &mpu_config) != MPU6050_OK) {
 	  return 0U;
@@ -414,5 +414,67 @@ uint8_t SensorTask_Setup(SensorTask_Context_t *sensor_ctx,
   BaseType_t status = SensorTask_Create(sensor_ctx);
   if (status != pdPASS)
     return 0U;
+  return 1U;
+}
+
+uint8_t ControlTask_Setup(ControlTask_Context_t *control_ctx,
+                          ReceiverTask_Context_t *receiver_ctx,
+                          SensorTask_Context_t *sensor_ctx,
+                          MotorPWM_Handle_t *motor_pwm) {
+  if (control_ctx == NULL || receiver_ctx == NULL || sensor_ctx == NULL ||
+      motor_pwm == NULL)
+    return 0U;
+
+  const PID_Config_t rate_pid_config = {
+      .Kp = 50.0f,
+      .Ki = 0.0f,
+      .Kd = 0.0f,
+      .integral_limit = 0.0f,
+      .output_limit = 0.15f,
+      .derivative_cut_of_hz = 0.0f
+  };
+
+  const PID_Config_t angle_pid_config = {
+      .Kp = 0.0f,
+      .Ki = 0.0f,
+      .Kd = 0.0f,
+      .integral_limit = 0.0f,
+      .output_limit = 200.0f,
+      .derivative_cut_of_hz = 0.0f
+  };
+
+  const ESC_Config_t esc_config = {
+      .stop_pulse_us = MIN_THROTTLE,
+      .idle_pulse_us = MIN_THROTTLE,
+      .max_pulse_us = MAX_THROTTLE};
+
+  control_ctx->sensor_queue = sensor_ctx->data_queue_to_control;
+  control_ctx->command_queue = receiver_ctx->command_queue;
+  control_ctx->command_timeout_ticks = receiver_ctx->timeout_ticks;
+
+  if (PID_Init(&control_ctx->rate_pid_roll, &rate_pid_config) != PID_OK)
+    return 0U;
+
+  if (PID_Init(&control_ctx->rate_pid_pitch, &rate_pid_config) != PID_OK)
+    return 0U;
+
+  if (PID_Init(&control_ctx->rate_pid_yaw, &rate_pid_config) != PID_OK)
+    return 0U;
+
+  if (PID_Init(&control_ctx->angle_pid_roll, &angle_pid_config) != PID_OK)
+    return 0U;
+
+  if (PID_Init(&control_ctx->angle_pid_pitch, &angle_pid_config) != PID_OK)
+    return 0U;
+
+  if (ESC_Init(&control_ctx->esc, motor_pwm, &esc_config) != ESC_OK)
+    return 0U;
+
+  if (ESC_Start(&control_ctx->esc) != ESC_OK)
+    return 0U;
+
+  if (ControlTask_Create(control_ctx) != pdPASS)
+    return 0U;
+
   return 1U;
 }

@@ -272,6 +272,7 @@ static void ProcessMode(ControlTask_Context_t *context,
 }
 
 static void ControlTask(void *argument) {
+	printf("Im in\r\n");
   ControlTask_Context_t *context = (ControlTask_Context_t *)argument;
 
   MPU6050_Data_t imu_data = {0};

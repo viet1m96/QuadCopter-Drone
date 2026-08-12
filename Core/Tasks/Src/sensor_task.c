@@ -68,14 +68,6 @@ static void HandleMPU6050Data(SensorTask_Context_t *context) {
     return;
   }
   calibrated.timestamp_tick = xTaskGetTickCount();
-  printf("accel_x %f\r\n", calibrated.accel_g.x);
-  printf("accel_y %f\r\n", calibrated.accel_g.y);
-  printf("accel_z %f\r\n", calibrated.accel_g.z);
-
-  printf("gyro_x %f\r\n", calibrated.gyro_dps.x);
-  printf("gyro_y %f\r\n", calibrated.gyro_dps.y);
-  printf("gyro_z %f\r\n", calibrated.gyro_dps.z);
-  printf("----------------------\r\n");
   (void)xQueueOverwrite(context->data_queue_to_control, &calibrated);
 }
 
