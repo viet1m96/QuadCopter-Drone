@@ -56,6 +56,9 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
 
     NotifyReceiverTaskFromISR(RECEIVER_EVENT_FRAME_READY,
                               &higher_priority_task_woken);
+  } else {
+	NotifyReceiverTaskFromISR(RECEIVER_EVENT_RX_PARTIAL,
+							  &higher_priority_task_woken);
   }
 
   portYIELD_FROM_ISR(higher_priority_task_woken);

@@ -45,5 +45,6 @@ uint8_t ControlTask_Setup(ControlTask_Context_t *control_ctx,
                           ReceiverTask_Context_t *receiver_ctx,
                           SensorTask_Context_t *sensor_ctx,
                           MotorPWM_Handle_t *motor_pwm);
+uint8_t I2C1_RecoverBus(void);
 
 #endif /* INC_SETUP_H_ */

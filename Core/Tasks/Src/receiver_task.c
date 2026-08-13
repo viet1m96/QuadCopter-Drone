@@ -94,7 +94,9 @@ static void ReceiverTask(void *argument) {
     uint32_t events = 0U;
 
     BaseType_t notified = xTaskNotifyWait(
-        0U, RECEIVER_EVENT_FRAME_READY | RECEIVER_EVENT_UART_ERROR, &events,
+        0U, RECEIVER_EVENT_FRAME_READY |
+			RECEIVER_EVENT_UART_ERROR  |
+			RECEIVER_EVENT_RX_PARTIAL, &events,
         wait_ticks);
 
     if (notified != pdPASS) {
@@ -109,11 +111,23 @@ static void ReceiverTask(void *argument) {
       continue;
     }
 
+    if((events & RECEIVER_EVENT_RX_PARTIAL) != 0U) {
+    	if(!receiver_start_next_frame(context)) {
+    		start_failsafe_protocol(context, &command, &last_sent_frame);
+    	}
+    	continue;
+    }
+
     if ((events & RECEIVER_EVENT_FRAME_READY) == 0U) {
       continue;
     }
 
+
     if (xQueueReceive(context->raw_frame_queue, &raw, 0U) == pdPASS) {
+      if(!receiver_start_next_frame(context)) {
+    	  start_failsafe_protocol(context, &command, &last_sent_frame);
+    	  continue;
+      }
       IBUS_Status_t decode_status =
           IBUS_DecodeFrame(raw.bytes, IBUS_FRAME_SIZE, &data);
 

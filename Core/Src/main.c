@@ -53,6 +53,12 @@ int main(void) {
   DMA_UART1_Init();
 
   TIM3_Init();
+
+  if (!I2C1_RecoverBus()) {
+    printf("I2C1 bus recovery failed\r\n");
+    return 0;
+  }
+
   I2C1_Init();
 
   if (!RCInput_Setup(&rc_inp)) {

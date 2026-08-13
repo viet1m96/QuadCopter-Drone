@@ -145,6 +145,64 @@ void TIM3_Init(void) {
   }
 }
 
+uint8_t I2C1_RecoverBus(void) {
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  __HAL_RCC_I2C1_FORCE_RESET();
+  __HAL_RCC_I2C1_RELEASE_RESET();
+
+  GPIO_InitTypeDef gpio = {0};
+
+  gpio.Pin = GPIO_PIN_8 | GPIO_PIN_9;
+  gpio.Mode = GPIO_MODE_OUTPUT_OD;
+  gpio.Pull = GPIO_PULLUP;
+  gpio.Speed = GPIO_SPEED_FREQ_HIGH;
+
+  HAL_GPIO_Init(GPIOB, &gpio);
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+
+  HAL_Delay(1U);
+
+  if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET) {
+    return 0U;
+  }
+
+  for (uint8_t i = 0U; i < 9U; ++i) {
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9) == GPIO_PIN_SET) {
+      break;
+    }
+
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+    HAL_Delay(1U);
+
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+    HAL_Delay(1U);
+
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET) {
+      return 0U;
+    }
+  }
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+  HAL_Delay(1U);
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+  HAL_Delay(1U);
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+  HAL_Delay(1U);
+
+  uint8_t bus_free =
+      HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET &&
+      HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9) == GPIO_PIN_SET;
+
+  HAL_GPIO_DeInit(GPIOB, GPIO_PIN_8 | GPIO_PIN_9);
+
+  return bus_free;
+}
+
 void I2C1_Init() {
   hi2c1.Instance = I2C1;
   hi2c1.Init.ClockSpeed = I2C_CLOCK_SPEED_FM;

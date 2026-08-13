@@ -17,6 +17,7 @@
 
 #define RECEIVER_EVENT_FRAME_READY (1UL << 0)
 #define RECEIVER_EVENT_UART_ERROR (1UL << 1)
+#define RECEIVER_EVENT_RX_PARTIAL (1UL << 2)
 
 typedef struct {
   HAL_IBUS_Transport_t *transport;
