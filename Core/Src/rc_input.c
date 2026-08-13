@@ -7,6 +7,7 @@
 
 #include "rc_input.h"
 #include "control_common.h"
+#include "stdio.h"
 
 static uint8_t
 rc_input_validate_throttle(const RCInput_ThrottleConfig_t *config) {
@@ -145,6 +146,9 @@ RCInput_Status_t RCInput_Convert(const RCInput_Handle_t *rc,
   }
   if (rc->initialized != 1U)
     return RC_INPUT_ERR_UNINITIALIZED;
+  for(uint8_t i = 0; i < 7; i++) {
+	  printf("data[%d]: %d\r\n", i, data->channels[i]);
+  }
   command->throttle = rc_input_normalize_throttle(
       &rc->config.throttle, data->channels[rc->config.throttle.channel_idx]);
 

@@ -4,6 +4,7 @@
 #include "motor_mixer.h"
 #include "mpu6050.h"
 #include "stddef.h"
+#include "stdio.h"
 
 #define CONTROL_ARM_MAX_THROTTLE 0.05f
 
@@ -48,6 +49,7 @@ static void Control_EnterFailSafe(ControlTask_Context_t *context) {
 
 static void ProcessArmState(ControlTask_Context_t *context,
                             const RCInput_Command_t *command) {
+
   switch (context->flight_state) {
 
   case FLIGHT_STATE_DISARMED:
@@ -272,7 +274,6 @@ static void ProcessMode(ControlTask_Context_t *context,
 }
 
 static void ControlTask(void *argument) {
-	printf("Im in\r\n");
   ControlTask_Context_t *context = (ControlTask_Context_t *)argument;
 
   MPU6050_Data_t imu_data = {0};
@@ -297,11 +298,9 @@ static void ControlTask(void *argument) {
 
   if (xQueueReceive(context->sensor_queue, &imu_data, portMAX_DELAY) !=
       pdPASS) {
-
-    Control_EnterFailSafe(context);
+	Control_EnterFailSafe(context);
     vTaskDelete(NULL);
   }
-
   previous_imu_tick = imu_data.timestamp_tick;
 
   InitializeAngle(&imu_data, &context->cur_angle);

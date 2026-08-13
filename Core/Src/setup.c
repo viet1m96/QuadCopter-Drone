@@ -426,14 +426,15 @@ uint8_t ControlTask_Setup(ControlTask_Context_t *control_ctx,
     return 0U;
 
   const PID_Config_t rate_pid_config = {
-      .Kp = 50.0f,
+      .Kp = 0.005f,
       .Ki = 0.0f,
       .Kd = 0.0f,
-      .integral_limit = 0.0f,
-      .output_limit = 0.15f,
-      .derivative_cut_of_hz = 0.0f
-  };
 
+      .integral_limit = 0.05f,
+      .output_limit = 0.15f,
+
+      .derivative_cut_of_hz = 20.0f
+  };
   const PID_Config_t angle_pid_config = {
       .Kp = 0.0f,
       .Ki = 0.0f,

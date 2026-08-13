@@ -21,7 +21,7 @@ extern "C" {
 #define I2C_CLOCK_SPEED_SM 100000
 #define I2C_CLOCK_SPEED_FM 400000
 #define TIM3_PRESCALER 89U
-#define TIM3_PERIOD 19999U
+#define TIM3_PERIOD 2499U
 
 void Error_Handler(void);
 

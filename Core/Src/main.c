@@ -60,14 +60,17 @@ int main(void) {
   }
 
   if (!IBUS_Setup(&ibus_transport)) {
+	  printf("1\r\n");
     return 0;
   }
 
   if (!MPU6050_Setup(&mpu, &device_io)) {
+	  printf("2\r\n");
     return 0;
   }
 
   if (!MotorPWM_Setup(&motor_pwm)) {
+	  printf("3\r\n");
     return 0;
   }
 
