@@ -53,7 +53,7 @@ int main(void) {
   DMA_UART1_Init();
 
   TIM3_Init();
-
+  TIM5_Init();
   if (!I2C1_RecoverBus()) {
     printf("I2C1 bus recovery failed\r\n");
     return 0;

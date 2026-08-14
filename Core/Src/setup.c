@@ -145,6 +145,42 @@ void TIM3_Init(void) {
   }
 }
 
+void TIM5_Init(void) {
+    RCC_ClkInitTypeDef clk_config = {0};
+    uint32_t flash_latency;
+    uint32_t pclk1_freq;
+    uint32_t tim5_freq;
+
+    __HAL_RCC_TIM5_CLK_ENABLE();
+
+    HAL_RCC_GetClockConfig(&clk_config, &flash_latency);
+
+    pclk1_freq = HAL_RCC_GetPCLK1Freq();
+
+    if (clk_config.APB1CLKDivider == RCC_HCLK_DIV1) {
+        tim5_freq = pclk1_freq;
+    } else {
+        tim5_freq = 2U * pclk1_freq;
+    }
+
+    htim5.Instance = TIM5;
+    htim5.Init.Prescaler = (tim5_freq / 1000000U) - 1U;
+    htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim5.Init.Period = 0xFFFFFFFFU;
+    htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+
+    if (HAL_TIM_Base_Init(&htim5) != HAL_OK) {
+        Error_Handler();
+    }
+
+    __HAL_TIM_SET_COUNTER(&htim5, 0U);
+
+    if (HAL_TIM_Base_Start(&htim5) != HAL_OK) {
+        Error_Handler();
+    }
+}
+
 uint8_t I2C1_RecoverBus(void) {
   __HAL_RCC_GPIOB_CLK_ENABLE();
 

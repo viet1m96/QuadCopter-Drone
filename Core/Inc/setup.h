@@ -27,6 +27,7 @@ void USART2_UART_Init();
 void USART1_UART_Init();
 void DMA_UART1_Init();
 void TIM3_Init();
+void TIM5_Init();
 uint8_t IBUS_Setup(HAL_IBUS_Transport_t *transport);
 uint8_t RCInput_Setup(RCInput_Handle_t *rc_inp);
 uint8_t MotorPWM_Setup(MotorPWM_Handle_t *motor_pwm);

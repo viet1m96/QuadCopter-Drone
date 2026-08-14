@@ -281,7 +281,7 @@ static void ControlTask(void *argument) {
   RCInput_Command_t command = {0};
   RCInput_Command_t new_command = {0};
 
-  TickType_t previous_imu_tick;
+  uint32_t previous_imu_us;
 
   int previous_mode;
 
@@ -301,7 +301,7 @@ static void ControlTask(void *argument) {
     Control_EnterFailSafe(context);
     vTaskDelete(NULL);
   }
-  previous_imu_tick = imu_data.timestamp_tick;
+  previous_imu_us = imu_data.timestamp_us;
 
   InitializeAngle(&imu_data, &context->cur_angle);
 
@@ -314,12 +314,11 @@ static void ControlTask(void *argument) {
       continue;
     }
 
-    TickType_t elapsed_ticks = imu_data.timestamp_tick - previous_imu_tick;
+    TickType_t elapsed_us = imu_data.timestamp_us - previous_imu_us;
 
-    previous_imu_tick = imu_data.timestamp_tick;
+    previous_imu_us = imu_data.timestamp_us;
 
-    float dt_s = (float)elapsed_ticks / (float)configTICK_RATE_HZ;
-
+    float dt_s = (float)elapsed_us * 1.0e-6f;
     if ((dt_s <= 0.0f) || (dt_s > CONTROL_MAX_DT_S)) {
 
       Control_EnterFailSafe(context);

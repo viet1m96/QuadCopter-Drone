@@ -2,6 +2,7 @@
 
 #include "stddef.h"
 #include "string.h"
+#include "stdio.h"
 
 
 #define RECEIVER_START_RETRY_MS 100U
@@ -10,7 +11,7 @@ static void receiver_make_failsafe_command(RCInput_Command_t *command) {
   if (command == NULL) {
     return;
   }
-
+  //printf("h\r\n");
   memset(command, 0, sizeof(*command));
   command->throttle = 0.0f;
   command->roll = 0.0f;
@@ -72,6 +73,7 @@ static void ReceiverTask(void *argument) {
   receiver_start_transport(context);
 
   for (;;) {
+
     TickType_t now = xTaskGetTickCount();
     TickType_t elapsed = now - last_sent_frame;
 
@@ -124,6 +126,7 @@ static void ReceiverTask(void *argument) {
     command.timestamp_tick = xTaskGetTickCount();
 
     receiver_publish_command(context, &command);
+
 
     last_sent_frame = command.timestamp_tick;
   }

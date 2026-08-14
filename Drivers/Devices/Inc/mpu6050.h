@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-#include "FreeRTOS.h"
 #include "device_IO.h"
 #include "vector_utils.h"
 
@@ -108,7 +107,7 @@ typedef struct {
   Vector3f_t accel_g;
   float temp_c;
   Vector3f_t gyro_dps;
-  TickType_t timestamp_tick;
+  uint32_t timestamp_us;
 } MPU6050_Data_t;
 
 /* -------------------------------------------------------------------------- */

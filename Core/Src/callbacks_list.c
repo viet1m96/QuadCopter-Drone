@@ -48,7 +48,47 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
   }
 
   HAL_UART_RxEventTypeTypeDef event = HAL_UARTEx_GetRxEventType(huart);
+  if (event == HAL_UART_RXEVENT_TC) {
+    uint16_t length =
+        IBUS_DMA_BUFFER_SIZE -
+        receiver_ctx->transport->last_idle_pos;
 
+    if (length != IBUS_FRAME_SIZE) {
+      return;
+    }
+
+    IBUS_RawFrame_t frame;
+
+    uint16_t read_pos =
+        receiver_ctx->transport->last_idle_pos;
+
+    for (uint16_t i = 0U; i < IBUS_FRAME_SIZE; i++) {
+      frame.bytes[i] =
+          receiver_ctx->transport->rx_buffer[read_pos++];
+    }
+
+    receiver_ctx->transport->last_idle_pos = 0U;
+
+    if (frame.bytes[0] != 0x20U ||
+        frame.bytes[1] != 0x40U) {
+      return;
+    }
+
+    BaseType_t higher_priority_task_woken = pdFALSE;
+
+    (void)xQueueOverwriteFromISR(
+        receiver_ctx->raw_frame_queue,
+        &frame,
+        &higher_priority_task_woken);
+
+    NotifyReceiverTaskFromISR(
+        RECEIVER_EVENT_FRAME_READY,
+        &higher_priority_task_woken);
+
+    portYIELD_FROM_ISR(higher_priority_task_woken);
+
+    return;
+  }
   if (event != HAL_UART_RXEVENT_IDLE) {
     return;
   }

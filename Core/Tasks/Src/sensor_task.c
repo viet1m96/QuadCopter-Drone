@@ -1,5 +1,6 @@
 #include "sensor_task.h"
 #include "stdio.h"
+#include "peripherals.h"
 
 #define MPU6050_REQUEST_MAX_LATENCY_MS 2U
 #define I2C1_TRANSACTION_TIMEOUT_MS 10U
@@ -65,7 +66,7 @@ static void HandleMPU6050Data(SensorTask_Context_t *context) {
       MPU6050_OK) {
     return;
   }
-  calibrated.timestamp_tick = xTaskGetTickCount();
+  calibrated.timestamp_us = PrecisionTimer_GetUs();
   (void)xQueueOverwrite(context->data_queue_to_control, &calibrated);
 }
 
