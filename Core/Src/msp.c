@@ -77,10 +77,10 @@ void HAL_TIM_OC_MspInit(TIM_HandleTypeDef *tim) {
     gpioc_config.Pin = GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_9;
     gpioc_config.Mode = GPIO_MODE_AF_PP;
     gpioc_config.Pull = GPIO_NOPULL;
-	gpioc_config.Speed = GPIO_SPEED_FREQ_HIGH;
-	gpioc_config.Alternate = GPIO_AF2_TIM3;
+    gpioc_config.Speed = GPIO_SPEED_FREQ_HIGH;
+    gpioc_config.Alternate = GPIO_AF2_TIM3;
 
-	HAL_GPIO_Init(GPIOC, &gpioc_config);
+    HAL_GPIO_Init(GPIOC, &gpioc_config);
   }
 }
 

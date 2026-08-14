@@ -298,7 +298,7 @@ static void ControlTask(void *argument) {
 
   if (xQueueReceive(context->sensor_queue, &imu_data, portMAX_DELAY) !=
       pdPASS) {
-	Control_EnterFailSafe(context);
+    Control_EnterFailSafe(context);
     vTaskDelete(NULL);
   }
   previous_imu_tick = imu_data.timestamp_tick;

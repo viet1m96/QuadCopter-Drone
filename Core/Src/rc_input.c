@@ -6,9 +6,9 @@
  */
 
 #include "rc_input.h"
+#include "FreeRTOS.h"
 #include "control_common.h"
 #include "stdio.h"
-#include "FreeRTOS.h"
 #include "task.h"
 
 static uint8_t

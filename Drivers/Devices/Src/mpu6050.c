@@ -468,15 +468,13 @@ MPU6050_Status_t MPU6050_Init(MPU6050_Handle_t *mpu, const DeviceIO_t *io,
 
   mpu->temp_offset = MPU6050_TEMP_OFFSET;
 
-  mpu->accel_offset_g = (Vector3f_t){
-	  .x = MPU6050_ACCEL_OFFSET_X_G,
-	  .y = MPU6050_ACCEL_OFFSET_Y_G,
-	  .z = MPU6050_ACCEL_OFFSET_Z_G};
+  mpu->accel_offset_g = (Vector3f_t){.x = MPU6050_ACCEL_OFFSET_X_G,
+                                     .y = MPU6050_ACCEL_OFFSET_Y_G,
+                                     .z = MPU6050_ACCEL_OFFSET_Z_G};
 
-  mpu->gyro_offset_dps = (Vector3f_t){
-	  .x = MPU6050_GYRO_OFFSET_X_DPS,
-	  .y = MPU6050_GYRO_OFFSET_Y_DPS,
-	  .z = MPU6050_GYRO_OFFSET_Z_DPS};
+  mpu->gyro_offset_dps = (Vector3f_t){.x = MPU6050_GYRO_OFFSET_X_DPS,
+                                      .y = MPU6050_GYRO_OFFSET_Y_DPS,
+                                      .z = MPU6050_GYRO_OFFSET_Z_DPS};
 
   uint8_t who_am_i = 0U;
 
@@ -807,8 +805,7 @@ MPU6050_SetStillnessConfig(const MPU6050_Handle_t *mpu,
 
   stillness->accel_threshold = MPU6050_ACCEL_MAGNITUDE_G * mpu->accel_scale;
 
-  stillness->accel_allowed_gap =
-      MPU6050_ACCEL_MAGNITUDE_GAP * mpu->accel_scale;
+  stillness->accel_allowed_gap = MPU6050_ACCEL_MAGNITUDE_GAP * mpu->accel_scale;
 
   return MPU6050_OK;
 }

@@ -45,9 +45,7 @@ static SensorOwner_t SelectEarliestRequest(SensorRequestCandidate_t *candidates,
   return selected_owner;
 }
 
-static void RecoverI2C1(SensorTask_Context_t *context) {
-	(void)context;
-}
+static void RecoverI2C1(SensorTask_Context_t *context) { (void)context; }
 
 static void HandleMPU6050Data(SensorTask_Context_t *context) {
   MPU6050_RawData_t raw;

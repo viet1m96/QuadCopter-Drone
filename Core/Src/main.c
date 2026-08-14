@@ -1,6 +1,6 @@
+#include "control_task.h"
 #include "receiver_task.h"
 #include "sensor_task.h"
-#include "control_task.h"
 #include "stm32f4xx.h"
 
 #include "main.h"
@@ -8,13 +8,13 @@
 #include "motor_mixer.h"
 #include "motor_pwm.h"
 
-#include "setup.h"
-#include "stdio.h"
 #include "FreeRTOS.h"
 #include "callbacks_list.h"
 #include "device_IO.h"
 #include "mpu6050.h"
 #include "queue.h"
+#include "setup.h"
+#include "stdio.h"
 #include "task.h"
 
 static RCInput_Handle_t rc_inp;
@@ -66,17 +66,17 @@ int main(void) {
   }
 
   if (!IBUS_Setup(&ibus_transport)) {
-	  printf("1\r\n");
+    printf("1\r\n");
     return 0;
   }
 
   if (!MPU6050_Setup(&mpu, &device_io)) {
-	  printf("2\r\n");
+    printf("2\r\n");
     return 0;
   }
 
   if (!MotorPWM_Setup(&motor_pwm)) {
-	  printf("3\r\n");
+    printf("3\r\n");
     return 0;
   }
 
@@ -88,7 +88,8 @@ int main(void) {
     return 0;
   }
 
-  if (!ControlTask_Setup(&control_ctx, &receiver_ctx, &sensor_ctx, &motor_pwm)) {
+  if (!ControlTask_Setup(&control_ctx, &receiver_ctx, &sensor_ctx,
+                         &motor_pwm)) {
     return 0;
   }
 

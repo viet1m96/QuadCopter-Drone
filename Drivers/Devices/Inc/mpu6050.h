@@ -8,17 +8,16 @@
 #include "vector_utils.h"
 
 /* -------------------------------------------------------------------------- */
-/* Calibration                                                                    */
+/* Calibration */
 /* -------------------------------------------------------------------------- */
 
-#define MPU6050_ACCEL_OFFSET_X_G    0.0f
-#define MPU6050_ACCEL_OFFSET_Y_G    0.0f
-#define MPU6050_ACCEL_OFFSET_Z_G    0.0f
+#define MPU6050_ACCEL_OFFSET_X_G 0.0f
+#define MPU6050_ACCEL_OFFSET_Y_G 0.0f
+#define MPU6050_ACCEL_OFFSET_Z_G 0.0f
 
-#define MPU6050_GYRO_OFFSET_X_DPS   0.0f
-#define MPU6050_GYRO_OFFSET_Y_DPS   0.0f
-#define MPU6050_GYRO_OFFSET_Z_DPS   0.0f
-
+#define MPU6050_GYRO_OFFSET_X_DPS 0.0f
+#define MPU6050_GYRO_OFFSET_Y_DPS 0.0f
+#define MPU6050_GYRO_OFFSET_Z_DPS 0.0f
 
 /* -------------------------------------------------------------------------- */
 /* Address                                                                    */

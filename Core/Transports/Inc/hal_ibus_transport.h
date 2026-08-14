@@ -10,6 +10,7 @@
 
 #include "ibus.h"
 #include "stm32f4xx_hal.h"
+#define IBUS_DMA_BUFFER_SIZE 128U
 
 typedef enum {
   HAL_IBUS_TRANSPORT_OK = 0,
@@ -20,7 +21,8 @@ typedef enum {
 
 typedef struct {
   UART_HandleTypeDef *huart;
-  uint8_t rx_buffer[IBUS_FRAME_SIZE];
+  uint8_t rx_buffer[IBUS_DMA_BUFFER_SIZE];
+  uint16_t last_idle_pos;
 } HAL_IBUS_Transport_t;
 
 HAL_IBUS_TransportStatus_t

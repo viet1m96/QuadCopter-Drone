@@ -12,6 +12,7 @@
 
 #include "FreeRTOS.h"
 #include "control_common.h"
+#include "control_task.h"
 #include "hal_ibus_transport.h"
 #include "ibus.h"
 #include "motor_pwm.h"
@@ -20,7 +21,6 @@
 #include "queue.h"
 #include "rc_input.h"
 #include "sensor_task.h"
-#include "control_task.h"
 
 void SystemClockConfig();
 void USART2_UART_Init();
@@ -38,8 +38,6 @@ void MPU6050_DRDY_GPIO_Init();
 uint8_t MPU6050_Setup(MPU6050_Handle_t *mpu, DeviceIO_t *device_io);
 uint8_t SensorTask_Setup(SensorTask_Context_t *sensor_ctx,
                          MPU6050_Handle_t *mpu);
-
-
 
 uint8_t ControlTask_Setup(ControlTask_Context_t *control_ctx,
                           ReceiverTask_Context_t *receiver_ctx,

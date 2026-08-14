@@ -17,6 +17,7 @@ HAL_IBUS_TransportInit(HAL_IBUS_Transport_t *transport,
     return HAL_IBUS_TRANSPORT_ERR_CONFIG;
   }
   transport->huart = huart;
+  transport->last_idle_pos = 0U;
   return HAL_IBUS_TRANSPORT_OK;
 }
 
@@ -26,11 +27,12 @@ HAL_IBUS_TransportStart(HAL_IBUS_Transport_t *transport) {
     return HAL_IBUS_TRANSPORT_ERR_NULL;
   }
   const HAL_StatusTypeDef status = HAL_UARTEx_ReceiveToIdle_DMA(
-      transport->huart, transport->rx_buffer, IBUS_FRAME_SIZE);
+      transport->huart, transport->rx_buffer, IBUS_DMA_BUFFER_SIZE);
   if (status != HAL_OK) {
     return HAL_IBUS_TRANSPORT_ERR_HAL;
   }
   __HAL_DMA_DISABLE_IT(transport->huart->hdmarx, DMA_IT_HT);
+  transport->last_idle_pos = 0U;
   return HAL_IBUS_TRANSPORT_OK;
 }
 

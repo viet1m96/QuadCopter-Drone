@@ -95,7 +95,7 @@ void DMA_UART1_Init(void) {
   hdma2_usart1_rx.Init.MemInc = DMA_MINC_ENABLE;
   hdma2_usart1_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
   hdma2_usart1_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-  hdma2_usart1_rx.Init.Mode = DMA_NORMAL;
+  hdma2_usart1_rx.Init.Mode = DMA_CIRCULAR;
   hdma2_usart1_rx.Init.Priority = DMA_PRIORITY_HIGH;
   hdma2_usart1_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
 
@@ -194,9 +194,8 @@ uint8_t I2C1_RecoverBus(void) {
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
   HAL_Delay(1U);
 
-  uint8_t bus_free =
-      HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET &&
-      HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9) == GPIO_PIN_SET;
+  uint8_t bus_free = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET &&
+                     HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9) == GPIO_PIN_SET;
 
   HAL_GPIO_DeInit(GPIOB, GPIO_PIN_8 | GPIO_PIN_9);
 
@@ -302,8 +301,8 @@ uint8_t ReceiverTask_Setup(ReceiverTask_Context_t *ctx,
   ctx->timeout_ticks = pdMS_TO_TICKS(IBUS_TIMEOUT_MS);
 
   BaseType_t status = ReceiverTask_Create(ctx);
-    if (status != pdPASS)
-      return 0U;
+  if (status != pdPASS)
+    return 0U;
   return 1U;
 }
 
@@ -415,7 +414,6 @@ static MPU6050_Status_t MPU6050_RunCalibration(MPU6050_Handle_t *mpu) {
   return MPU6050_OK;
 }
 
-
 uint8_t MPU6050_Setup(MPU6050_Handle_t *mpu, DeviceIO_t *device_io) {
   const MPU6050_Config_t mpu_config = {
       .address = MPU6050_I2C_ADDRESS_AD0_LOW,
@@ -429,16 +427,15 @@ uint8_t MPU6050_Setup(MPU6050_Handle_t *mpu, DeviceIO_t *device_io) {
       .int_level = 0U, .int_open = 0U, .latch_int_en = 0U, .int_rd_clear = 0U};
 
   if (HAL_I2C_DeviceIO_Init(&hi2c1, device_io) != DEVICE_IO_OK) {
-	  return 0U;
+    return 0U;
   }
-
 
   if (MPU6050_Init(mpu, device_io, &mpu_config) != MPU6050_OK) {
-	  return 0U;
+    return 0U;
   }
 
-  if(MPU6050_RunCalibration(mpu) != MPU6050_OK) {
-	  return 0U;
+  if (MPU6050_RunCalibration(mpu) != MPU6050_OK) {
+    return 0U;
   }
   if (MPU6050_ConfigureInterrupt(mpu, &mpu_interrupt_config))
     return 0U;
@@ -483,29 +480,24 @@ uint8_t ControlTask_Setup(ControlTask_Context_t *control_ctx,
       motor_pwm == NULL)
     return 0U;
 
-  const PID_Config_t rate_pid_config = {
-      .Kp = 0.005f,
-      .Ki = 0.0f,
-      .Kd = 0.0f,
+  const PID_Config_t rate_pid_config = {.Kp = 0.005f,
+                                        .Ki = 0.0f,
+                                        .Kd = 0.0f,
 
-      .integral_limit = 0.05f,
-      .output_limit = 0.15f,
+                                        .integral_limit = 0.05f,
+                                        .output_limit = 0.15f,
 
-      .derivative_cut_of_hz = 20.0f
-  };
-  const PID_Config_t angle_pid_config = {
-      .Kp = 0.0f,
-      .Ki = 0.0f,
-      .Kd = 0.0f,
-      .integral_limit = 0.0f,
-      .output_limit = 200.0f,
-      .derivative_cut_of_hz = 0.0f
-  };
+                                        .derivative_cut_of_hz = 20.0f};
+  const PID_Config_t angle_pid_config = {.Kp = 0.0f,
+                                         .Ki = 0.0f,
+                                         .Kd = 0.0f,
+                                         .integral_limit = 0.0f,
+                                         .output_limit = 200.0f,
+                                         .derivative_cut_of_hz = 0.0f};
 
-  const ESC_Config_t esc_config = {
-      .stop_pulse_us = MIN_THROTTLE,
-      .idle_pulse_us = MIN_THROTTLE,
-      .max_pulse_us = MAX_THROTTLE};
+  const ESC_Config_t esc_config = {.stop_pulse_us = MIN_THROTTLE,
+                                   .idle_pulse_us = MIN_THROTTLE,
+                                   .max_pulse_us = MAX_THROTTLE};
 
   control_ctx->sensor_queue = sensor_ctx->data_queue_to_control;
   control_ctx->command_queue = receiver_ctx->command_queue;
