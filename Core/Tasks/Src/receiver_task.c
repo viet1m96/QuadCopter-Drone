@@ -1,9 +1,8 @@
 #include "receiver_task.h"
 
 #include "stddef.h"
-#include "string.h"
 #include "stdio.h"
-
+#include "string.h"
 
 #define RECEIVER_START_RETRY_MS 100U
 
@@ -11,7 +10,7 @@ static void receiver_make_failsafe_command(RCInput_Command_t *command) {
   if (command == NULL) {
     return;
   }
-  //printf("h\r\n");
+  // printf("h\r\n");
   memset(command, 0, sizeof(*command));
   command->throttle = 0.0f;
   command->roll = 0.0f;
@@ -54,8 +53,7 @@ static void receiver_start_transport(ReceiverTask_Context_t *context) {
 
   (void)xQueueReset(context->raw_frame_queue);
 
-  while (HAL_IBUS_TransportStart(context->transport) !=
-         HAL_IBUS_TRANSPORT_OK) {
+  while (HAL_IBUS_TransportStart(context->transport) != HAL_IBUS_TRANSPORT_OK) {
     vTaskDelay(pdMS_TO_TICKS(RECEIVER_START_RETRY_MS));
   }
 }
@@ -86,12 +84,9 @@ static void ReceiverTask(void *argument) {
 
     uint32_t events = 0U;
 
-    BaseType_t notified =
-        xTaskNotifyWait(0U,
-                        RECEIVER_EVENT_FRAME_READY |
-                            RECEIVER_EVENT_UART_ERROR,
-                        &events,
-                        wait_ticks);
+    BaseType_t notified = xTaskNotifyWait(
+        0U, RECEIVER_EVENT_FRAME_READY | RECEIVER_EVENT_UART_ERROR, &events,
+        wait_ticks);
 
     if (notified != pdPASS) {
       receiver_enter_failsafe(context, &command, &last_sent_frame);
@@ -127,25 +122,18 @@ static void ReceiverTask(void *argument) {
 
     receiver_publish_command(context, &command);
 
-
     last_sent_frame = command.timestamp_tick;
   }
 }
 
 BaseType_t ReceiverTask_Create(ReceiverTask_Context_t *receiver_ctx) {
-  if (receiver_ctx == NULL ||
-      receiver_ctx->transport == NULL ||
-      receiver_ctx->rc_input == NULL ||
-      receiver_ctx->raw_frame_queue == NULL ||
+  if (receiver_ctx == NULL || receiver_ctx->transport == NULL ||
+      receiver_ctx->rc_input == NULL || receiver_ctx->raw_frame_queue == NULL ||
       receiver_ctx->command_queue == NULL ||
       receiver_ctx->timeout_ticks == 0U) {
     return pdFALSE;
   }
 
-  return xTaskCreate(ReceiverTask,
-                     "Receiver",
-                     256U,
-                     receiver_ctx,
-                     3U,
+  return xTaskCreate(ReceiverTask, "Receiver", 256U, receiver_ctx, 3U,
                      &receiver_ctx->task_handle);
 }

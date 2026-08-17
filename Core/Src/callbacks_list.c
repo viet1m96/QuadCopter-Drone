@@ -6,8 +6,7 @@
 
 static ReceiverTask_Context_t *receiver_ctx;
 static SensorTask_Context_t *sensor_ctx;
-volatile uint32_t ibus_uart_error_code = 0U;
-volatile uint32_t cnt = 0U;
+volatile uint32_t cnt = 1U;
 
 static void NotifyReceiverTaskFromISR(uint32_t events,
                                       BaseType_t *higher_priority_task_woken) {
@@ -50,8 +49,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
   HAL_UART_RxEventTypeTypeDef event = HAL_UARTEx_GetRxEventType(huart);
   if (event == HAL_UART_RXEVENT_TC) {
     uint16_t length =
-        IBUS_DMA_BUFFER_SIZE -
-        receiver_ctx->transport->last_idle_pos;
+        IBUS_DMA_BUFFER_SIZE - receiver_ctx->transport->last_idle_pos;
 
     if (length != IBUS_FRAME_SIZE) {
       return;
@@ -59,31 +57,25 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
 
     IBUS_RawFrame_t frame;
 
-    uint16_t read_pos =
-        receiver_ctx->transport->last_idle_pos;
+    uint16_t read_pos = receiver_ctx->transport->last_idle_pos;
 
     for (uint16_t i = 0U; i < IBUS_FRAME_SIZE; i++) {
-      frame.bytes[i] =
-          receiver_ctx->transport->rx_buffer[read_pos++];
+      frame.bytes[i] = receiver_ctx->transport->rx_buffer[read_pos++];
     }
 
     receiver_ctx->transport->last_idle_pos = 0U;
 
-    if (frame.bytes[0] != 0x20U ||
-        frame.bytes[1] != 0x40U) {
+    if (frame.bytes[0] != 0x20U || frame.bytes[1] != 0x40U) {
       return;
     }
 
     BaseType_t higher_priority_task_woken = pdFALSE;
 
-    (void)xQueueOverwriteFromISR(
-        receiver_ctx->raw_frame_queue,
-        &frame,
-        &higher_priority_task_woken);
+    (void)xQueueOverwriteFromISR(receiver_ctx->raw_frame_queue, &frame,
+                                 &higher_priority_task_woken);
 
-    NotifyReceiverTaskFromISR(
-        RECEIVER_EVENT_FRAME_READY,
-        &higher_priority_task_woken);
+    NotifyReceiverTaskFromISR(RECEIVER_EVENT_FRAME_READY,
+                              &higher_priority_task_woken);
 
     portYIELD_FROM_ISR(higher_priority_task_woken);
 
@@ -146,8 +138,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
       receiver_ctx->transport->huart != huart) {
     return;
   }
-  ibus_uart_error_code = HAL_UART_GetError(huart);
-  cnt++;
+
   BaseType_t higher_priority_task_woken = pdFALSE;
 
   NotifyReceiverTaskFromISR(RECEIVER_EVENT_UART_ERROR,
@@ -157,16 +148,14 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin) {
-  if (gpio_pin != GPIO_PIN_12) {
-    return;
+  if (gpio_pin == GPIO_PIN_12) {
+    BaseType_t higher_priority_task_woken = pdFALSE;
+    sensor_ctx->imu_request.timestamp_ms = PrecisionTimer_GetUs();
+    NotifySensorTaskFromISR(SENSOR_EVENT_MPU6050_DRDY,
+                            &higher_priority_task_woken);
+
+    portYIELD_FROM_ISR(higher_priority_task_woken);
   }
-
-  BaseType_t higher_priority_task_woken = pdFALSE;
-
-  NotifySensorTaskFromISR(SENSOR_EVENT_MPU6050_DRDY,
-                          &higher_priority_task_woken);
-
-  portYIELD_FROM_ISR(higher_priority_task_woken);
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
@@ -186,7 +175,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
   if (hi2c != &hi2c1) {
     return;
   }
-
+  cnt++;
   BaseType_t higher_priority_task_woken = pdFALSE;
 
   NotifySensorTaskFromISR(SENSOR_EVENT_I2C1_ERROR, &higher_priority_task_woken);

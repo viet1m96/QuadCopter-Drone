@@ -15,8 +15,4 @@ TIM_HandleTypeDef hal_tick_timer;
 TIM_HandleTypeDef htim5;
 I2C_HandleTypeDef hi2c1;
 
-uint32_t PrecisionTimer_GetUs(void) {
-	return __HAL_TIM_GET_COUNTER(&htim5);
-}
-
-
+uint32_t PrecisionTimer_GetUs(void) { return __HAL_TIM_GET_COUNTER(&htim5); }

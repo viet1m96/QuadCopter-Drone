@@ -126,7 +126,6 @@ static float rc_input_normalize_axis(const RCInput_AxisConfig_t *axis,
 
 static uint8_t rc_input_detect_failsafe(uint16_t raw) {
   return (raw == FAILSAFE_THROTTLE) ? 1U : 0U;
-
 }
 
 static RCInput_Mode_t rc_input_detect_mode(uint16_t raw) {

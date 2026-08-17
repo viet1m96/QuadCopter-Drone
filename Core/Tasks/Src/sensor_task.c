@@ -1,6 +1,6 @@
 #include "sensor_task.h"
-#include "stdio.h"
 #include "peripherals.h"
+#include "sensor_i2c_bus.h"
 
 #define MPU6050_REQUEST_MAX_LATENCY_MS 2U
 #define I2C1_TRANSACTION_TIMEOUT_MS 10U
@@ -30,15 +30,12 @@ static SensorOwner_t SelectEarliestRequest(SensorRequestCandidate_t *candidates,
 
     if (selected_owner == SENSOR_OWNER_NONE) {
       selected_owner = candidates[i].owner;
-
       selected_deadline = request->deadline_tick;
-
       continue;
     }
 
     if (DeadlineIsEarlier(request->deadline_tick, selected_deadline)) {
       selected_owner = candidates[i].owner;
-
       selected_deadline = request->deadline_tick;
     }
   }
@@ -46,13 +43,11 @@ static SensorOwner_t SelectEarliestRequest(SensorRequestCandidate_t *candidates,
   return selected_owner;
 }
 
-static void RecoverI2C1(SensorTask_Context_t *context) { (void)context; }
-
 static void HandleMPU6050Data(SensorTask_Context_t *context) {
   MPU6050_RawData_t raw;
   MPU6050_Data_t physical;
   MPU6050_Data_t calibrated;
-
+  calibrated.timestamp_us = context->imu_request.timestamp_ms;
   if (MPU6050_GetRawDataIT(context->imu, &raw) != MPU6050_OK) {
     return;
   }
@@ -66,40 +61,15 @@ static void HandleMPU6050Data(SensorTask_Context_t *context) {
       MPU6050_OK) {
     return;
   }
-  calibrated.timestamp_us = PrecisionTimer_GetUs();
+
   (void)xQueueOverwrite(context->data_queue_to_control, &calibrated);
 }
 
 static void HandleI2C1Events(SensorTask_Context_t *context, uint32_t events) {
-  SensorBusManager_t *bus = &context->i2c1_manager;
+  SensorOwner_t completed_owner =
+      SensorI2CBus_HandleEvents(&context->i2c1_manager, events);
 
-  if (bus->state == SENSOR_BUS_ABORTING) {
-    if ((events & SENSOR_EVENT_I2C1_ABORT_DONE) != 0U) {
-      bus->state = SENSOR_BUS_IDLE;
-      bus->owner = SENSOR_OWNER_NONE;
-      bus->active_device_address = 0U;
-    }
-
-    return;
-  }
-
-  if (bus->state != SENSOR_BUS_BUSY) {
-    return;
-  }
-
-  if ((events & SENSOR_EVENT_I2C1_ERROR) != 0U) {
-    bus->state = SENSOR_BUS_IDLE;
-    bus->owner = SENSOR_OWNER_NONE;
-    bus->active_device_address = 0U;
-
-    return;
-  }
-
-  if ((events & SENSOR_EVENT_I2C1_RX_DONE) == 0U) {
-    return;
-  }
-
-  switch (bus->owner) {
+  switch (completed_owner) {
   case SENSOR_OWNER_MPU6050:
     HandleMPU6050Data(context);
     break;
@@ -107,10 +77,6 @@ static void HandleI2C1Events(SensorTask_Context_t *context, uint32_t events) {
   default:
     break;
   }
-
-  bus->state = SENSOR_BUS_IDLE;
-  bus->owner = SENSOR_OWNER_NONE;
-  bus->active_device_address = 0U;
 }
 
 static void HandleSensorEvents(SensorTask_Context_t *context, uint32_t events,
@@ -132,59 +98,14 @@ static void HandleEvents(SensorTask_Context_t *context, uint32_t events,
   HandleSensorEvents(context, events, now);
 }
 
-static void CheckI2C1Timeout(SensorTask_Context_t *context, TickType_t now) {
-  SensorBusManager_t *bus = &context->i2c1_manager;
-
-  if (bus->state == SENSOR_BUS_IDLE) {
-    return;
-  }
-
-  TickType_t elapsed = now - bus->state_started_tick;
-
-  if (bus->state == SENSOR_BUS_BUSY) {
-    if (elapsed < bus->transaction_timeout_ticks) {
-      return;
-    }
-
-    DeviceIO_Status_t status = bus->device_io->ops->abort_it(
-        bus->device_io->context, bus->active_device_address);
-
-    if (status == DEVICE_IO_OK) {
-      bus->state = SENSOR_BUS_ABORTING;
-      bus->state_started_tick = now;
-      return;
-    }
-
-    RecoverI2C1(context);
-
-    bus->state = SENSOR_BUS_IDLE;
-    bus->owner = SENSOR_OWNER_NONE;
-    bus->active_device_address = 0U;
-
-    return;
-  }
-
-  if (bus->state == SENSOR_BUS_ABORTING) {
-    if (elapsed < bus->abort_timeout_ticks) {
-      return;
-    }
-
-    RecoverI2C1(context);
-
-    bus->state = SENSOR_BUS_IDLE;
-    bus->owner = SENSOR_OWNER_NONE;
-    bus->active_device_address = 0U;
-  }
-}
-
 static void CheckBusTimeouts(SensorTask_Context_t *context, TickType_t now) {
-  CheckI2C1Timeout(context, now);
+  SensorI2CBus_CheckTimeout(&context->i2c1_manager, now);
 }
 
 static void ScheduleI2C1(SensorTask_Context_t *context, TickType_t now) {
   SensorBusManager_t *bus = &context->i2c1_manager;
 
-  if (bus->state != SENSOR_BUS_IDLE) {
+  if (SensorI2CBus_IsIdle(bus) == 0U) {
     return;
   }
 
@@ -206,49 +127,27 @@ static void ScheduleI2C1(SensorTask_Context_t *context, TickType_t now) {
 
     context->imu_request.pending = 0U;
 
-    bus->owner = SENSOR_OWNER_MPU6050;
-    bus->active_device_address = context->imu->config.address;
+    SensorI2CBus_Start(bus, SENSOR_OWNER_MPU6050,
+                       (DeviceIO_t *)context->imu->io,
+                       context->imu->config.address, now);
 
     break;
 
   default:
     return;
   }
-
-  bus->state = SENSOR_BUS_BUSY;
-  bus->state_started_tick = now;
 }
 
 static void ScheduleRequests(SensorTask_Context_t *context, TickType_t now) {
   ScheduleI2C1(context, now);
 }
 
-static TickType_t CalculateBusWaitTime(SensorBusManager_t *bus,
-                                       TickType_t now) {
-  TickType_t timeout;
-
-  if (bus->state == SENSOR_BUS_BUSY) {
-    timeout = bus->transaction_timeout_ticks;
-  } else if (bus->state == SENSOR_BUS_ABORTING) {
-    timeout = bus->abort_timeout_ticks;
-  } else {
-    return portMAX_DELAY;
-  }
-
-  TickType_t elapsed = now - bus->state_started_tick;
-
-  if (elapsed >= timeout) {
-    return 0U;
-  }
-
-  return timeout - elapsed;
-}
-
 static TickType_t CalculateWaitTime(SensorTask_Context_t *context,
                                     TickType_t now) {
   TickType_t wait_time = portMAX_DELAY;
 
-  TickType_t i2c1_wait = CalculateBusWaitTime(&context->i2c1_manager, now);
+  TickType_t i2c1_wait =
+      SensorI2CBus_CalculateWaitTime(&context->i2c1_manager, now);
 
   if (i2c1_wait < wait_time) {
     wait_time = i2c1_wait;
@@ -287,25 +186,15 @@ BaseType_t SensorTask_Create(SensorTask_Context_t *sensor_ctx) {
   }
 
   sensor_ctx->imu_request.pending = 0U;
+
   sensor_ctx->imu_request.deadline_tick = 0U;
+
   sensor_ctx->imu_request.max_latency_ticks =
       pdMS_TO_TICKS(MPU6050_REQUEST_MAX_LATENCY_MS);
 
-  sensor_ctx->i2c1_manager.state = SENSOR_BUS_IDLE;
-
-  sensor_ctx->i2c1_manager.owner = SENSOR_OWNER_NONE;
-
-  sensor_ctx->i2c1_manager.device_io = (DeviceIO_t *)sensor_ctx->imu->io;
-
-  sensor_ctx->i2c1_manager.active_device_address = 0U;
-
-  sensor_ctx->i2c1_manager.state_started_tick = 0U;
-
-  sensor_ctx->i2c1_manager.transaction_timeout_ticks =
-      pdMS_TO_TICKS(I2C1_TRANSACTION_TIMEOUT_MS);
-
-  sensor_ctx->i2c1_manager.abort_timeout_ticks =
-      pdMS_TO_TICKS(I2C1_ABORT_TIMEOUT_MS);
+  SensorI2CBus_Init(&sensor_ctx->i2c1_manager,
+                    pdMS_TO_TICKS(I2C1_TRANSACTION_TIMEOUT_MS),
+                    pdMS_TO_TICKS(I2C1_ABORT_TIMEOUT_MS));
 
   sensor_ctx->task_handle = NULL;
 

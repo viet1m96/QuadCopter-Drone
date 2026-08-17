@@ -49,6 +49,7 @@ int main(void) {
   SystemClockConfig();
 
   USART2_UART_Init();
+  printf("Hi\r\n");
   USART1_UART_Init();
   DMA_UART1_Init();
 
