@@ -91,23 +91,12 @@ static uint32_t hal_i2c_get_tick_ms(void *context) {
   return HAL_GetTick();
 }
 
-static DeviceIO_Status_t hal_i2c_abort_it(void *context,
-                                          uint8_t device_address) {
-  I2C_HandleTypeDef *hi2c = (I2C_HandleTypeDef *)context;
-  if (hi2c == NULL)
-    return DEVICE_IO_INVALID_ARGUMENT;
-  HAL_StatusTypeDef status =
-      HAL_I2C_Master_Abort_IT(hi2c, (uint16_t)(device_address << 1U));
-  return hal_i2c_convert_status(status);
-}
-
 static const DeviceIO_Ops_t hal_i2c_device_io_ops = {
     .write_registers = hal_i2c_write_registers,
     .read_registers = hal_i2c_read_registers,
     .read_registers_it = hal_i2c_read_registers_it,
     .delay_ms = hal_i2c_delay_ms,
-    .get_tick_ms = hal_i2c_get_tick_ms,
-    .abort_it = hal_i2c_abort_it};
+    .get_tick_ms = hal_i2c_get_tick_ms};
 
 DeviceIO_Status_t HAL_I2C_DeviceIO_Init(I2C_HandleTypeDef *hi2c,
                                         DeviceIO_t *device_io) {

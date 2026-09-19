@@ -33,8 +33,6 @@ typedef struct {
   void (*delay_ms)(void *context, uint32_t delay_ms);
 
   uint32_t (*get_tick_ms)(void *context);
-
-  DeviceIO_Status_t (*abort_it)(void *context, uint8_t device_address);
 } DeviceIO_Ops_t;
 
 typedef struct {

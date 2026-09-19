@@ -7,6 +7,7 @@
 
 #include "pid_controller.h"
 #include "math.h"
+#include "stddef.h"
 
 static float pid_derivative_low_pass_filter(float prev_filtered,
                                             float derivative, float cut_of_hz,
@@ -60,8 +61,9 @@ static PID_Status_t pid_is_valid_config(const PID_Config_t *config) {
 
   return 1U;
 }
-PID_Status_t PID_Update(PID_Handle_t *pid, float set_point, float measurement,
-                        float dt_s, float *output) {
+PID_Status_t PID_UpdateConditional(PID_Handle_t *pid, float set_point,
+                                   float measurement, float dt_s,
+                                   uint8_t integral_enabled, float *output) {
   if (pid == NULL || output == NULL)
     return PID_ERR_NULL;
   if (pid->initialized == 0U)
@@ -77,9 +79,6 @@ PID_Status_t PID_Update(PID_Handle_t *pid, float set_point, float measurement,
 
   float proportional = pid->config.Kp * error;
 
-  pid->integral += pid->config.Ki * error * dt_s;
-  pid->integral = pid_clamp_sym(pid->integral, pid->config.integral_limit);
-
   if (pid->has_prev_measurement == 0U) {
     pid->prev_measurement = measurement;
     pid->derivative_filtered = 0U;
@@ -92,9 +91,38 @@ PID_Status_t PID_Update(PID_Handle_t *pid, float set_point, float measurement,
                                        pid->config.derivative_cut_of_hz, dt_s);
     pid->prev_measurement = measurement;
   }
+
+  if (integral_enabled != 0U) {
+    float integral_candidate = pid->integral + pid->config.Ki * error * dt_s;
+    integral_candidate =
+        pid_clamp_sym(integral_candidate, pid->config.integral_limit);
+
+    float candidate_output =
+        proportional + integral_candidate + pid->derivative_filtered;
+
+    if ((candidate_output <= pid->config.output_limit || error < 0.0f) &&
+        (candidate_output >= -pid->config.output_limit || error > 0.0f)) {
+      pid->integral = integral_candidate;
+    }
+  }
+
   float result = proportional + pid->integral + pid->derivative_filtered;
   result = pid_clamp_sym(result, pid->config.output_limit);
   *output = result;
+  return PID_OK;
+}
+
+PID_Status_t PID_Update(PID_Handle_t *pid, float set_point, float measurement,
+                        float dt_s, float *output) {
+  return PID_UpdateConditional(pid, set_point, measurement, dt_s, 1U, output);
+}
+
+PID_Status_t PID_ResetIntegral(PID_Handle_t *pid) {
+  if (pid == NULL)
+    return PID_ERR_NULL;
+  if (pid->initialized == 0U)
+    return PID_ERR_UNINITIALIZED;
+  pid->integral = 0.0f;
   return PID_OK;
 }
 

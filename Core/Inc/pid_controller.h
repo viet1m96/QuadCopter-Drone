@@ -41,6 +41,10 @@ typedef struct {
 
 PID_Status_t PID_Update(PID_Handle_t *pid, float set_point, float measurement,
                         float dt_s, float *output);
+PID_Status_t PID_UpdateConditional(PID_Handle_t *pid, float set_point,
+                                   float measurement, float dt_s,
+                                   uint8_t integral_enabled, float *output);
+PID_Status_t PID_ResetIntegral(PID_Handle_t *pid);
 PID_Status_t PID_Reset(PID_Handle_t *pid);
 PID_Status_t PID_Init(PID_Handle_t *pid, const PID_Config_t *config);
 

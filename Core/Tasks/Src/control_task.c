@@ -5,15 +5,18 @@
 #include "mpu6050.h"
 #include "stddef.h"
 #include "stdio.h"
+#include "telemetry_task.h"
 
 #define CONTROL_ARM_MAX_THROTTLE 0.05f
+#define CONTROL_PID_ACTIVE_MIN_THROTTLE 0.08f
+#define CONTROL_INTEGRAL_ACTIVE_MIN_THROTTLE 0.20f
 
 #define CONTROL_MAX_ANGLE_ROLL 30.0f
 #define CONTROL_MAX_ANGLE_PITCH 30.0f
 
 #define CONTROL_MAX_ROLL_RATE_DPS 200.0f
 #define CONTROL_MAX_PITCH_RATE_DPS 200.0f
-#define CONTROL_MAX_YAW_RATE_DPS 150.0f
+#define CONTROL_MAX_YAW_RATE_DPS 80.0f
 
 #define CONTROL_MAX_DT_S 0.01f
 #define CONTROL_SENSOR_TIMEOUT_MS 10U
@@ -22,6 +25,57 @@
 
 #define CONTROL_TASK_STACK_DEPTH (configMINIMAL_STACK_SIZE * 2U)
 #define CONTROL_TASK_PRIORITY (tskIDLE_PRIORITY + 5U)
+
+static void ResetControlTelemetryState(ControlTelemetryState_t *telemetry) {
+  if (telemetry == NULL)
+    return;
+
+  telemetry->correction = (AxisCorrection_t){0};
+  for (uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
+    telemetry->motor_throttle[i] = 0.0f;
+  }
+}
+
+static void PublishTelemetry(const ControlTask_Context_t *context,
+                             const MPU6050_Data_t *imu_data,
+                             const RCInput_Command_t *command) {
+
+  if (context == NULL || imu_data == NULL || command == NULL ||
+      context->telemetry.sample_queue == NULL) {
+    return;
+  }
+
+  TelemetrySample_t sample = {
+      .timestamp_us = imu_data->timestamp_us,
+
+      .throttle_command = command->throttle,
+
+      .roll_command = command->roll,
+      .pitch_command = command->pitch,
+      .yaw_command = command->yaw,
+
+      .roll_deg = context->cur_angle.roll,
+      .pitch_deg = context->cur_angle.pitch,
+
+      .gyro_x_dps = imu_data->gyro_dps.x,
+      .gyro_y_dps = imu_data->gyro_dps.y,
+      .gyro_z_dps = imu_data->gyro_dps.z,
+
+      .accel_x_g = imu_data->accel_g.x,
+      .accel_y_g = imu_data->accel_g.y,
+      .accel_z_g = imu_data->accel_g.z,
+
+      .roll_correction = context->telemetry.correction.roll,
+      .pitch_correction = context->telemetry.correction.pitch,
+      .yaw_correction = context->telemetry.correction.yaw,
+  };
+
+  for (uint32_t i = 0U; i < MOTOR_PWM_QUANTITY; ++i) {
+    sample.motor_throttle[i] = context->telemetry.motor_throttle[i];
+  }
+
+  (void)xQueueOverwrite(context->telemetry.sample_queue, &sample);
+}
 
 static void ResetRatePID(ControlTask_Context_t *context) {
   (void)PID_Reset(&context->rate_pid_roll);
@@ -45,6 +99,7 @@ static void Control_EnterFailSafe(ControlTask_Context_t *context) {
   ResetControlPID(context);
 
   (void)ESC_WriteStop(&context->esc);
+  ResetControlTelemetryState(&context->telemetry);
 }
 
 static void ProcessArmState(ControlTask_Context_t *context,
@@ -139,25 +194,29 @@ static void CalculateAngle(const MPU6050_Data_t *imu_data, Angle_t *angle,
 static PID_Status_t
 RunRatePID(ControlTask_Context_t *context, const MPU6050_Data_t *imu_data,
            float roll_rate_setpoint, float pitch_rate_setpoint,
-           float yaw_rate_setpoint, float dt_s, AxisCorrection_t *correction) {
+           float yaw_rate_setpoint, float dt_s, uint8_t integral_enabled,
+           AxisCorrection_t *correction) {
   PID_Status_t status;
 
-  status = PID_Update(&context->rate_pid_roll, roll_rate_setpoint,
-                      imu_data->gyro_dps.x, dt_s, &correction->roll);
+  status = PID_UpdateConditional(&context->rate_pid_roll, roll_rate_setpoint,
+                                 imu_data->gyro_dps.x, dt_s, integral_enabled,
+                                 &correction->roll);
 
   if (status != PID_OK) {
     return status;
   }
 
-  status = PID_Update(&context->rate_pid_pitch, pitch_rate_setpoint,
-                      imu_data->gyro_dps.y, dt_s, &correction->pitch);
+  status = PID_UpdateConditional(&context->rate_pid_pitch, pitch_rate_setpoint,
+                                 imu_data->gyro_dps.y, dt_s, integral_enabled,
+                                 &correction->pitch);
 
   if (status != PID_OK) {
     return status;
   }
 
-  status = PID_Update(&context->rate_pid_yaw, yaw_rate_setpoint,
-                      imu_data->gyro_dps.z, dt_s, &correction->yaw);
+  status = PID_UpdateConditional(&context->rate_pid_yaw, yaw_rate_setpoint,
+                                 imu_data->gyro_dps.z, dt_s, integral_enabled,
+                                 &correction->yaw);
 
   return status;
 }
@@ -178,6 +237,12 @@ static void ApplyMotorOutput(ControlTask_Context_t *context, float throttle,
 
   if (esc_status != ESC_OK) {
     Control_EnterFailSafe(context);
+    return;
+  }
+
+  context->telemetry.correction = *correction;
+  for (uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
+    context->telemetry.motor_throttle[i] = output.motor[i];
   }
 }
 
@@ -191,10 +256,18 @@ static void ProcessRateMode(ControlTask_Context_t *context,
   float yaw_rate_setpoint = command->yaw * CONTROL_MAX_YAW_RATE_DPS;
 
   AxisCorrection_t correction = {0};
+  uint8_t integral_enabled =
+      command->throttle >= CONTROL_INTEGRAL_ACTIVE_MIN_THROTTLE;
+
+  if (integral_enabled == 0U) {
+    (void)PID_ResetIntegral(&context->rate_pid_roll);
+    (void)PID_ResetIntegral(&context->rate_pid_pitch);
+    (void)PID_ResetIntegral(&context->rate_pid_yaw);
+  }
 
   PID_Status_t pid_status =
       RunRatePID(context, imu_data, roll_rate_setpoint, pitch_rate_setpoint,
-                 yaw_rate_setpoint, dt_s, &correction);
+                 yaw_rate_setpoint, dt_s, integral_enabled, &correction);
 
   if (pid_status != PID_OK) {
     Control_EnterFailSafe(context);
@@ -215,7 +288,6 @@ static void ProcessAngleMode(ControlTask_Context_t *context,
   float pitch_rate_setpoint = 0.0f;
 
   float yaw_rate_setpoint = command->yaw * CONTROL_MAX_YAW_RATE_DPS;
-
   PID_Status_t pid_status;
 
   pid_status = PID_Update(&context->angle_pid_roll, roll_angle_setpoint,
@@ -235,10 +307,18 @@ static void ProcessAngleMode(ControlTask_Context_t *context,
   }
 
   AxisCorrection_t correction = {0};
+  uint8_t integral_enabled =
+      command->throttle >= CONTROL_INTEGRAL_ACTIVE_MIN_THROTTLE;
+
+  if (integral_enabled == 0U) {
+    (void)PID_ResetIntegral(&context->rate_pid_roll);
+    (void)PID_ResetIntegral(&context->rate_pid_pitch);
+    (void)PID_ResetIntegral(&context->rate_pid_yaw);
+  }
 
   pid_status =
       RunRatePID(context, imu_data, roll_rate_setpoint, pitch_rate_setpoint,
-                 yaw_rate_setpoint, dt_s, &correction);
+                 yaw_rate_setpoint, dt_s, integral_enabled, &correction);
 
   if (pid_status != PID_OK) {
     Control_EnterFailSafe(context);
@@ -359,10 +439,25 @@ static void ControlTask(void *argument) {
 
       (void)ESC_WriteStop(&context->esc);
 
+      ResetControlTelemetryState(&context->telemetry);
+      PublishTelemetry(context, &imu_data, &command);
+
+      continue;
+    }
+
+    if (command.throttle < CONTROL_PID_ACTIVE_MIN_THROTTLE) {
+      AxisCorrection_t zero_correction = {0};
+
+      ResetControlPID(context);
+      ResetControlTelemetryState(&context->telemetry);
+      ApplyMotorOutput(context, command.throttle, &zero_correction);
+      PublishTelemetry(context, &imu_data, &command);
+
       continue;
     }
 
     ProcessMode(context, &command, &imu_data, dt_s);
+    PublishTelemetry(context, &imu_data, &command);
   }
 }
 
@@ -372,7 +467,8 @@ BaseType_t ControlTask_Create(ControlTask_Context_t *control_ctx) {
   }
 
   if ((control_ctx->sensor_queue == NULL) ||
-      (control_ctx->command_queue == NULL)) {
+      (control_ctx->command_queue == NULL) ||
+      (control_ctx->telemetry.sample_queue == NULL)) {
 
     return pdFAIL;
   }
@@ -382,7 +478,7 @@ BaseType_t ControlTask_Create(ControlTask_Context_t *control_ctx) {
   }
 
   control_ctx->flight_state = FLIGHT_STATE_DISARMED;
-
+  ResetControlTelemetryState(&control_ctx->telemetry);
   return xTaskCreate(ControlTask, "ControlTask", CONTROL_TASK_STACK_DEPTH,
                      control_ctx, CONTROL_TASK_PRIORITY, NULL);
 }

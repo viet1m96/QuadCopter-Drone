@@ -4,7 +4,6 @@
 
 #define MPU6050_REQUEST_MAX_LATENCY_MS 2U
 #define I2C1_TRANSACTION_TIMEOUT_MS 10U
-#define I2C1_ABORT_TIMEOUT_MS 10U
 
 typedef struct {
   SensorOwner_t owner;
@@ -47,7 +46,7 @@ static void HandleMPU6050Data(SensorTask_Context_t *context) {
   MPU6050_RawData_t raw;
   MPU6050_Data_t physical;
   MPU6050_Data_t calibrated;
-  calibrated.timestamp_us = context->imu_request.timestamp_ms;
+  calibrated.timestamp_us = context->imu_request.timestamp_us;
   if (MPU6050_GetRawDataIT(context->imu, &raw) != MPU6050_OK) {
     return;
   }
@@ -127,9 +126,7 @@ static void ScheduleI2C1(SensorTask_Context_t *context, TickType_t now) {
 
     context->imu_request.pending = 0U;
 
-    SensorI2CBus_Start(bus, SENSOR_OWNER_MPU6050,
-                       (DeviceIO_t *)context->imu->io,
-                       context->imu->config.address, now);
+    SensorI2CBus_Start(bus, SENSOR_OWNER_MPU6050, now);
 
     break;
 
@@ -166,6 +163,8 @@ static void SensorTask(void *argument) {
 
     HandleEvents(context, events, now);
 
+    now = xTaskGetTickCount();
+
     CheckBusTimeouts(context, now);
 
     ScheduleRequests(context, now);
@@ -180,7 +179,6 @@ static void SensorTask(void *argument) {
 BaseType_t SensorTask_Create(SensorTask_Context_t *sensor_ctx) {
   if (sensor_ctx == NULL || sensor_ctx->imu == NULL ||
       sensor_ctx->imu->io == NULL || sensor_ctx->imu->io->ops == NULL ||
-      sensor_ctx->imu->io->ops->abort_it == NULL ||
       sensor_ctx->data_queue_to_control == NULL) {
     return pdFALSE;
   }
@@ -193,8 +191,7 @@ BaseType_t SensorTask_Create(SensorTask_Context_t *sensor_ctx) {
       pdMS_TO_TICKS(MPU6050_REQUEST_MAX_LATENCY_MS);
 
   SensorI2CBus_Init(&sensor_ctx->i2c1_manager,
-                    pdMS_TO_TICKS(I2C1_TRANSACTION_TIMEOUT_MS),
-                    pdMS_TO_TICKS(I2C1_ABORT_TIMEOUT_MS));
+                    pdMS_TO_TICKS(I2C1_TRANSACTION_TIMEOUT_MS));
 
   sensor_ctx->task_handle = NULL;
 

@@ -96,10 +96,26 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef *hi2c) {
     gpiob_config.Alternate = GPIO_AF4_I2C1;
 
     HAL_GPIO_Init(GPIOB, &gpiob_config);
-    HAL_NVIC_SetPriority(I2C1_EV_IRQn, 5U, 0U);
+    HAL_NVIC_SetPriority(I2C1_EV_IRQn, 6U, 0U);
+    HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);
     HAL_NVIC_EnableIRQ(I2C1_EV_IRQn);
 
-    HAL_NVIC_SetPriority(I2C1_ER_IRQn, 5U, 0U);
+    HAL_NVIC_SetPriority(I2C1_ER_IRQn, 6U, 0U);
+    HAL_NVIC_ClearPendingIRQ(I2C1_ER_IRQn);
     HAL_NVIC_EnableIRQ(I2C1_ER_IRQn);
+  }
+}
+
+void HAL_I2C_MspDeInit(I2C_HandleTypeDef *hi2c) {
+  if (hi2c->Instance == I2C1) {
+    HAL_NVIC_DisableIRQ(I2C1_EV_IRQn);
+    HAL_NVIC_DisableIRQ(I2C1_ER_IRQn);
+
+    HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);
+    HAL_NVIC_ClearPendingIRQ(I2C1_ER_IRQn);
+
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_8 | GPIO_PIN_9);
+
+    __HAL_RCC_I2C1_CLK_DISABLE();
   }
 }

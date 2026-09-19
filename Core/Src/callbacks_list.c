@@ -150,7 +150,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin) {
   if (gpio_pin == GPIO_PIN_12) {
     BaseType_t higher_priority_task_woken = pdFALSE;
-    sensor_ctx->imu_request.timestamp_ms = PrecisionTimer_GetUs();
+    sensor_ctx->imu_request.timestamp_us = PrecisionTimer_GetUs();
     NotifySensorTaskFromISR(SENSOR_EVENT_MPU6050_DRDY,
                             &higher_priority_task_woken);
 
@@ -179,19 +179,6 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
   BaseType_t higher_priority_task_woken = pdFALSE;
 
   NotifySensorTaskFromISR(SENSOR_EVENT_I2C1_ERROR, &higher_priority_task_woken);
-
-  portYIELD_FROM_ISR(higher_priority_task_woken);
-}
-
-void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c) {
-  if (hi2c != &hi2c1) {
-    return;
-  }
-
-  BaseType_t higher_priority_task_woken = pdFALSE;
-
-  NotifySensorTaskFromISR(SENSOR_EVENT_I2C1_ABORT_DONE,
-                          &higher_priority_task_woken);
 
   portYIELD_FROM_ISR(higher_priority_task_woken);
 }

@@ -36,31 +36,29 @@ motor_mixer_desaturate_corrections(float base_throttle,
     min_tmp = (min_tmp < correction[i]) ? min_tmp : correction[i];
     max_tmp = (max_tmp > correction[i]) ? max_tmp : correction[i];
   }
-  float diff = max_tmp - min_tmp;
-  if (diff > 1.0f) {
-    float scale = 1.0f / diff;
-    for (uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
-      correction[i] *= scale;
-    }
+
+  float scale = 1.0f;
+  float range = max_tmp - min_tmp;
+
+  if (range > 1.0f) {
+    scale = 1.0f / range;
+    min_tmp *= scale;
+    max_tmp *= scale;
+  }
+
+  float adjusted_throttle = base_throttle;
+
+  if (adjusted_throttle + max_tmp > 1.0f) {
+    adjusted_throttle = 1.0f - max_tmp;
+  }
+
+  if (adjusted_throttle + min_tmp < 0.0f && min_tmp < 0.0f) {
+    float lower_scale = adjusted_throttle / -min_tmp;
+    scale *= motor_mixer_clamp(lower_scale, 0.0f, 1.0f);
   }
 
   for (uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
-    correction[i] += base_throttle;
-  }
-  min_tmp = correction[0];
-  max_tmp = correction[0];
-  for (uint32_t i = 1; i < MOTOR_PWM_QUANTITY; i++) {
-    min_tmp = (min_tmp < correction[i]) ? min_tmp : correction[i];
-    max_tmp = (max_tmp > correction[i]) ? max_tmp : correction[i];
-  }
-  diff = 0.0f;
-  if (max_tmp > 1.0f) {
-    diff = 1.0f - max_tmp;
-  } else if (min_tmp < 0.0f) {
-    diff = -min_tmp;
-  }
-  for (uint32_t i = 0; i < MOTOR_PWM_QUANTITY; i++) {
-    correction[i] += diff;
+    correction[i] = adjusted_throttle + correction[i] * scale;
     correction[i] = motor_mixer_clamp(correction[i], 0.0f, 1.0f);
   }
 }

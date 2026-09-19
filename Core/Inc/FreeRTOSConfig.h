@@ -64,4 +64,5 @@
 #define xPortSysTickHandler SysTick_Handler
 #define INCLUDE_vTaskDelete 1
 #define INCLUDE_vTaskDelay 1
+#define INCLUDE_xTaskDelayUntil 1
 #endif /* INC_FREERTOSCONFIG_H_ */

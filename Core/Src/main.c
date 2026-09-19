@@ -9,11 +9,15 @@
 #include "motor_pwm.h"
 
 #include "FreeRTOS.h"
+#include "application_setup.h"
+#include "board_i2c1.h"
+#include "board_init.h"
 #include "callbacks_list.h"
 #include "device_IO.h"
+#include "device_setup.h"
 #include "mpu6050.h"
+#include "peripherals.h"
 #include "queue.h"
-#include "setup.h"
 #include "stdio.h"
 #include "task.h"
 
@@ -26,6 +30,7 @@ static MotorPWM_Handle_t motor_pwm;
 static ReceiverTask_Context_t receiver_ctx;
 static SensorTask_Context_t sensor_ctx;
 static ControlTask_Context_t control_ctx;
+static TelemetryTask_Context_t telemetry_ctx;
 
 static void UserLED_Init(void) {
   __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -49,18 +54,15 @@ int main(void) {
   SystemClockConfig();
 
   USART2_UART_Init();
-  printf("Hi\r\n");
   USART1_UART_Init();
   DMA_UART1_Init();
 
   TIM3_Init();
   TIM5_Init();
-  if (!I2C1_RecoverBus()) {
+  if (!I2C1_Recover()) {
     printf("I2C1 bus recovery failed\r\n");
     return 0;
   }
-
-  I2C1_Init();
 
   if (!RCInput_Setup(&rc_inp)) {
     return 0;
@@ -81,6 +83,10 @@ int main(void) {
     return 0;
   }
 
+  if (!TelemetryTask_Setup(&telemetry_ctx)) {
+    return 0;
+  }
+
   if (!ReceiverTask_Setup(&receiver_ctx, &rc_inp, &ibus_transport)) {
     return 0;
   }
@@ -90,16 +96,20 @@ int main(void) {
   }
 
   if (!ControlTask_Setup(&control_ctx, &receiver_ctx, &sensor_ctx,
-                         &motor_pwm)) {
+                         &telemetry_ctx, &motor_pwm)) {
     return 0;
   }
 
   Callbacks_Init(&receiver_ctx, &sensor_ctx);
 
+  if (!MPU6050_EnableDataReadyInterrupt(&mpu)) {
+    printf("4\r\n");
+    return 0;
+  }
+
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 
   vTaskStartScheduler();
-
   for (;;) {
   }
 }

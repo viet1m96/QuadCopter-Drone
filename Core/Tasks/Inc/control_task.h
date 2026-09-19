@@ -2,6 +2,7 @@
 #define TASKS_INC_CONTROL_TASK_H_
 
 #include "FreeRTOS.h"
+#include "control_common.h"
 #include "esc_simonk.h"
 #include "pid_controller.h"
 #include "queue.h"
@@ -21,6 +22,12 @@ typedef struct {
 } Angle_t;
 
 typedef struct {
+  QueueHandle_t sample_queue;
+  float motor_throttle[MOTOR_PWM_QUANTITY];
+  AxisCorrection_t correction;
+} ControlTelemetryState_t;
+
+typedef struct {
   FlightState_t flight_state;
 
   PID_Handle_t rate_pid_roll;
@@ -38,6 +45,8 @@ typedef struct {
   Angle_t cur_angle;
 
   TickType_t command_timeout_ticks;
+
+  ControlTelemetryState_t telemetry;
 } ControlTask_Context_t;
 
 BaseType_t ControlTask_Create(ControlTask_Context_t *control_ctx);

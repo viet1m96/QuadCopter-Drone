@@ -9,14 +9,13 @@
 
 #define SENSOR_EVENT_I2C1_RX_DONE (1UL << 0)
 #define SENSOR_EVENT_I2C1_ERROR (1UL << 1)
-#define SENSOR_EVENT_I2C1_ABORT_DONE (1UL << 2)
-#define SENSOR_EVENT_MPU6050_DRDY (1UL << 3)
+#define SENSOR_EVENT_MPU6050_DRDY (1UL << 2)
 
 typedef struct {
   uint8_t pending;
   TickType_t deadline_tick;
   TickType_t max_latency_ticks;
-  uint32_t timestamp_ms;
+  uint32_t timestamp_us;
 } SensorRequest_t;
 
 typedef struct {
